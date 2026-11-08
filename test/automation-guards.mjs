@@ -53,11 +53,13 @@ async function mergingCard(mergeState, extra = {}) {
   return store.state.tasks[task.id]
 }
 
-await t('autoMerge 跳过 blocked 的卡（不撞注定失败的合并）', async () => {
+await t('autoMerge 对 blocked 但原因未知的卡仍试一次（不焊死，靠退避止噪）', async () => {
   mergeCalls = []
   const task = await mergingCard('blocked')
   await sched.tick()
-  assert.equal(mergeCalls.includes(task.id), false, 'blocked 的卡不该进 merge()')
+  // 口径与 dispatch 的 canEnterMerge 一致：只有**契约类**原因才一律拒绝；
+  // 环境原因是开放集合（integ-dirty / repo-dirty / wrong-branch…），白名单漏一个就是永久焊死。
+  assert.equal(mergeCalls.includes(task.id), true)
 })
 
 await t('autoMerge 合 ready 的卡', async () => {

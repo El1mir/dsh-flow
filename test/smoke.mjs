@@ -1219,21 +1219,33 @@ await t('主仓库没有被污染', () => assert.equal(readFileSync(join(repo, '
   sh(advWt, ['add', '-A']); sh(advWt, ['commit', '-qm', '别人的提交'])
   sh(repo, ['worktree', 'remove', '--force', advWt])
   const nRes = await dispatcher.merge(store.state.tasks[nId], { by: 'human' })
-  await t('v0.002 分支落后 base：ff-only 失败 → blocked/needs-rebase + 回派一次', () => {
+  // C-01 改了这条路径的语义：分支落后**不**是「合并失败」，而是「还没轮到」——
+  // 现在先 review_conflict 回派（卡回到 running，工人这才发得出 stop），
+  // mergeState 记 pending，等工人软合并交上来之后重新验收、再合一次。
+  await t('v0.002 分支落后 base：ff-only 失败 → 回派工人 + mergeState=pending', () => {
     assert.equal(nRes.ok, false)
     assert.equal(nRes.reason, 'needs-rebase')
     assert.equal(nRes.attempts, 1)
-    assert.equal(store.state.tasks[nId].mergeState, 'blocked')
+    assert.equal(store.state.tasks[nId].mergeState, 'pending')
     assert.equal(store.state.tasks[nId].mergeReason, 'needs-rebase')
+    assert.equal(store.state.tasks[nId].column, 'running', '回派的卡必须回到 running，否则工人自停会被状态机拒')
+    assert.equal(store.state.tasks[nId].rebaseAttempts, 1)
   })
   await t('v0.002 needs-rebase 有次数上限（第 3 次之后不再回派）', async () => {
-    const tk = store.state.tasks[nId]
-    tk.rebaseAttempts = 3
+    // 卡此刻在 running（回派中），再走一次合并要先回到合并列 —— 直接摆好前置态，
+    // 这里验的是「上限」这一条判据，不是状态机迁移。
+    await store.tx((s) => {
+      const tk = s.tasks[nId]
+      tk.column = 'merging'
+      tk.phase = 'merge-ready'
+      tk.activeRunId = null
+      tk.rebaseAttempts = 3
+    })
     const more = await dispatcher.merge(store.state.tasks[nId], { by: 'human' })
     assert.equal(more.ok, false)
     assert.equal(store.state.tasks[nId].rebaseAttempts, 4)
+    assert.equal(store.state.tasks[nId].mergeState, 'blocked')
     assert.match(String(store.state.tasks[nId].noMergeReason || ''), /上限 3/)
-    tk.rebaseAttempts = 0
   })
   await domain.updateProjectConfig(gp.id, { mergeStrategy: 'merge' }, { role: 'human' })
 
