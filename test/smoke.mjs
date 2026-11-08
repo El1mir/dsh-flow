@@ -1395,7 +1395,12 @@ await t('主仓库没有被污染', () => assert.equal(readFileSync(join(repo, '
 
   await t('零提交仓库派工：不建 worktree，但把原因说清楚', () => {
     const cur = store.state.tasks[ut.id]
-    assert.equal(domain.worktreeOf(ut.id), null, '没有基线提交就不该假装建出了 worktree')
+    // I-07 改了表达方式：不再"没有记录"，而是显式记一条 state=none —— 这样读侧能分清
+    // "还没建" 与 "这个项目不需要建"。要守的是**不许有可用路径**，不是"不许有记录"。
+    const rec = domain.worktreeOf(ut.id)
+    assert.ok(!rec || !rec.path, '没有基线提交就不该假装建出了 worktree：' + JSON.stringify(rec))
+    assert.equal(rec ? rec.state : null, 'none')
+    assert.equal(rec.stateReason, 'no-commits')
     assert.equal(cur.noMerge, true)
     assert.match(cur.noMergeReason, /一次提交都没有|基线/, '要讲清是缺基线，不是"不支持 git"。实际：' + cur.noMergeReason)
     assert.ok(!/invalid reference/.test(cur.noMergeReason), '不该把 git 的裸 fatal 直接抛给用户：' + cur.noMergeReason)

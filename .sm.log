@@ -441,4 +441,4 @@
   ✓ v1.36 合并后冒烟：配置了就跑，失败会阻塞卡片并留下输出
   ✓ v1.35 autoMerge 项目有 block 级判据时请调度审核，而不是系统代写 approved
 
-442 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-DI9Gkk\flow.json
+442 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-jVOsyk\flow.json
