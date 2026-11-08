@@ -12,3 +12,6 @@ node_modules/
 
 # Windows 保留名（cmd 重定向会误建，git 索引不了）
 nul
+
+# 冒烟输出（每次运行都变，不进版本库）
+.sm.log

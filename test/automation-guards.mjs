@@ -157,4 +157,47 @@ await t('autoLane 在没有自动卡动作时不刷日志', async () => {
   assert.equal(logs.some((l) => l.startsWith('auto-lane:')), false)
 })
 
+
+// ---- C-10：合并列缺 PR 快照时自动补开 ----
+const p2 = await domain.ensureProject({ workspacePath: join(dir, 'repo2'), name: 'c10' })
+await domain.updateProjectConfig(p2.id, { autoDispatch: true })
+let openCalls = 0
+let openResult = { ok: true }
+const sched2 = createScheduler({
+  domain,
+  dispatcher: {
+    merge: async () => ({ ok: true, commit: 'cafe', base: 'master' }),
+    openPr: async () => { openCalls += 1; return openResult },
+  },
+  store,
+  log: (m) => logs.push(String(m)),
+})
+async function mergingNoPr(title) {
+  const task = await domain.createTask(p2.id, { title })
+  await domain.store.tx((s2) => {
+    Object.assign(s2.tasks[task.id], { column: 'merging', phase: 'merge-ready', mergeState: 'pending' })
+  })
+  return store.state.tasks[task.id]
+}
+
+await t('合并列没有 PR 快照 → 自动开一次', async () => {
+  openCalls = 0
+  openResult = { ok: true }
+  const task = await mergingNoPr('缺快照')
+  const report = await sched2.tick()
+  assert.equal(openCalls, 1, '应该调用一次 openPr')
+  assert.ok(report.advanced.some((x) => x.taskId === task.id && x.action === 'open_pr'))
+})
+
+await t('开 PR 失败写退避时间戳，10 分钟内不再撞', async () => {
+  openCalls = 0
+  openResult = { ok: false, message: '工作区有未提交改动' }
+  const task = await mergingNoPr('开 PR 会失败')
+  await sched2.tick()
+  assert.equal(openCalls, 1)
+  assert.ok(store.state.tasks[task.id].prOpenFailedAt, '要记下失败时间用于退避')
+  await sched2.tick()
+  assert.equal(openCalls, 1, '退避窗口内不该再调')
+})
+
 console.log('automation guards ok (' + pass + ' checks)')
