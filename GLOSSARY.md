@@ -40,6 +40,8 @@
 | **已交付（isDelivered）** | 唯一口径：`column==='done' && phase==='merged'`。统计交付率只能用它 | `lib/core.js` `isDelivered` / `deliveryState` |
 | **外部 PR 卡（external-pr）** | 别人开的 PR 变成的一张受限合并卡：落 merging、无检出、永不派工 | `kind: 'external-pr'`；`lib/domain.js` `createExternalPrTask`；守卫 `lib/dispatch.js` `dispatch()` |
 | **一次性抓取分支** | 外部 PR 的代码抓进本地用的 `external/pr-<n>`，合并后删掉 | `lib/git.js` `fetchRef` |
+| **无 run 会话（run-less session）** | 不由派工驱动、从不进 runs 表的会话：需求评审工位、调度员自己、交接会话。它们的 turn/end 不能按「收 run」处理，但**必须**在出错时通知调度 | `lib/dispatch.js` `handleNoRunFailure` |
+| **grill.failed** | 评审这一轮没有正常结束（模型报错/被中断）。与 `grill.message` 分开：一个是评审说话了，一个是它根本没说话 | `lib/dispatch.js` `EVENT_OF_KIND` |
 | **PR 结束（PR ended）** | 远程 PR 进入 merged 或 closed 的状态；同步层只产出事实（`ended[]`），收口由调度按车道决定 | `lib/sync-engine.js` `refreshPulls` / `refreshExternalPulls`、`lib/scheduler.js` `closeoutEnded` |
 | **remote-ended** | `cancelled` 的一个 phase：自动车道的卡因为远程 PR 结束而自动收尾，区别于人主动 `cancel` | `lib/core.js` `TRANSITIONS.remote_ended` |
 | **冲突解决轮（resolver round）** | 外部 PR 与本 base 打架时，卡上落 `external.resolver=true` + `external.baseRef`，派工后工人从 `external/pr-<n>` 拉分支、把 base 合进来解冲突 | `lib/dispatch.js` `dispatch()` 守卫 / `buildExternalConflictPacket` / `mergeLocked` |

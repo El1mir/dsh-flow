@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-flow",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "type": "module",
   "main": "index.js",
@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/merge-guards.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs && node test/worktree-reuse.mjs && node test/autolane.mjs && node test/deliver-branch.mjs && node test/external-merge.mjs && node test/external-conflict.mjs && node test/remote-closeout.mjs",
+    "test": "node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/merge-guards.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs && node test/worktree-reuse.mjs && node test/autolane.mjs && node test/deliver-branch.mjs && node test/external-merge.mjs && node test/external-conflict.mjs && node test/remote-closeout.mjs && node test/session-error.mjs && node test/grill-stuck.mjs",
     "test:smoke": "node test/smoke.mjs",
     "test:client": "node test/client.mjs",
     "test:render": "node test/render.mjs",
@@ -50,7 +50,9 @@
     "test:deliver-branch": "node test/deliver-branch.mjs",
     "test:external-merge": "node test/external-merge.mjs",
     "test:external-conflict": "node test/external-conflict.mjs",
-    "test:closeout": "node test/remote-closeout.mjs"
+    "test:closeout": "node test/remote-closeout.mjs",
+    "test:session-error": "node test/session-error.mjs",
+    "test:grill-stuck": "node test/grill-stuck.mjs"
   },
   "description": "DSH flow workbench v1.0: human/issue dual-lane scheduler, chief-dispatcher-worker supervision, scope-aware dispatch, context budget compaction, /flow read-only dispatch mode and a native overview panel.",
   "files": [

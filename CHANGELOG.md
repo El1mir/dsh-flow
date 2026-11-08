@@ -3,6 +3,50 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.006 — 2026-11-08
+
+主题：**「报错停止」也算停止事件** —— 没有 run 的会话出错时必须叫醒调度。
+
+### 修的问题（线上事故）
+
+需求评审的对话被 `SERVER 503 / model_not_found` 打断。DSH 照常发了 `turn/end`（reason.kind='error'），
+但插件在 `onSessionEvent` 里按「有没有正在跑的 run」分流 —— 而**评审工位从来没有 run**
+（它由 `promptSession` 驱动，不进 runs 表）。于是事件走到 `reason:'no-active-run'` 被静默丢掉：
+
+1. 调度全程不知情，卡停在 `grill.status='running'`；
+2. `grillStart` 有「评审正在进行中」守卫 → **这张卡从此不能再开评审**，只能人手工救。
+
+### 行为变化
+
+- `onSessionEvent` 在拿不到 run 时不再直接丢弃，改为 `handleNoRunFailure`：
+  - 先落一条事实 `maintenance.lastSessionErrors`（sessionId / agentId / role / kind / reason / at，只留最近 20 条）；
+  - 若会话属于某项目的**评审工位**：把正在等结论的那一轮判 `failed`（模型报错/内容问题）或 `interrupted`（人停止生成），
+    记录 `lastError`、`failedRound`、`failedAt`，**把 `rounds` 退回上一轮**（失败的一轮不占配额，
+    否则两次模型抖动就能把 `grillMaxRounds` 耗光），在卡上写评论，并 `notifyDispatcher(kind='grill-failed')`。
+- 新增事件类型 `grill.failed`（`EVENT_OF_KIND['grill-failed']`），与 `grill.message` 分开：
+  一个是「评审说话了」，一个是「评审这一轮根本没成功」，调度对这两件事的动作完全不同。
+- `grill.failed` 走**紧急**通道（与其他 session 失败同等待遇）：评审停住时整张卡都在等结论，
+  攒进聚合器没有意义。
+- 调度员/chief 自己报错**只留事实、不发通知**：给自己发通知是自通知死循环，而它的错误在界面上本来就看得见。
+
+### 兜底：轮次超时也收尸（`lib/scheduler.js` `reapGrill`）
+
+有些情况下根本没有 `turn/end`：进程崩溃、会话被归档、provider 切换失败。那时 `grill.status` 会永远停在 `running`。
+tick 新增一步 `grill`（排在 `stuck` 之后）：任一评审轮次超过 `grillStuckAfterMs`（默认沿用 `stuckAfterMs` = 30 分钟）没回信，
+就判失败、写 `lastError`、**轮次退回**、评论、并 `notifyDispatcher('grill-failed')`。
+为此 `deliverInjection` 在每轮开始时写 `grill.roundStartedAt` —— 不能用 `startedAt` 判超时（它只记整张卡评审的起点，会把第 2 轮一上来就判死）。
+### 新增状态
+
+- `store.maintenance.lastSessionErrors`（数组，最多 20 条）与 `domain.sessionErrors(limit)`。
+- `task.grill` 新增 `lastError` / `failedAt` / `failedRound`，`status` 多了 `failed` / `interrupted` 两个值。
+
+### 新增测试
+
+- `test/session-error.mjs`（10 checks）：不再返回 no-active-run、判失败并记住错误原文、轮次回滚、卡上有评论、
+  调度收到 `grill.failed`、失败后可重开评审、人停止生成时记 `interrupted`、调度员自己报错不发通知、
+  未知会话安静丢弃、事件类型映射。
+- `test/grill-stuck.mjs`（7 checks）：40 分钟不回信判失败、轮次退回、5 分钟不动、卡上评论、调度收到 grill.failed、
+  幂等（同一拍不重复收）、`grillStuckAfterMs` 可调。
 ## v0.005 — 2026-11-08
 
 主题：**远程 PR 结束后，本地卡按车道收口**。

@@ -1,11 +1,22 @@
 # dsh-flow
 
-当前版本：**v0.005**（`package.json` = `0.0.5`；npm 版本号不允许前导零，故展示名与字段值分开）
+当前版本：**v0.006**（`package.json` = `0.0.6`；npm 版本号不允许前导零，故展示名与字段值分开）
 
 数据 schema：**13**（v0.002 是 12、v0.001 是 11；首次加载自动迁移，见 CHANGELOG）
 
 DSH 插件：调度台工作台。把「需求 → 拆解 → 派工 → 工人 goal 自循环 → 停止分类 → 验收 → PR 审核 → 合并」做成一条带事务的记录流。
 
+## v0.006：报错停止也算停止事件
+
+没有 run 的会话（需求评审工位、调度员自己）报错时，插件以前会把 `turn/end(error)` 判成 `no-active-run` 丢掉 ——
+于是评审被 `SERVER 503` 打断后，卡永远挂在 `grill.status='running'`，既没人被通知，也再也开不了新一轮评审。
+
+现在：
+
+- 先落一条事实 `maintenance.lastSessionErrors`（谁、什么错、什么时候，留最近 20 条）；
+- 若出错的是**评审工位**：这一轮判 `failed`（模型报错）或 `interrupted`（人停止生成），在卡上评论，
+  `notifyDispatcher(kind='grill-failed')` 走紧急通道叫醒调度；**轮次回滚**，失败的一轮不占 `grillMaxRounds` 配额。
+- 调度员/chief 自己报错只留事实、不发通知（避免自通知死循环）。
 ## v0.005：远程 PR 结束后，本地卡按车道收口
 
 这里的「PR」指 GitHub/Gitea 上真实可见的 PR（不是本地快照）。
