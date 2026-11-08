@@ -427,7 +427,7 @@ await t('schema 10→11：老卡补 parentId/childIds/ticket，老工单补结�
   }))
   const st = new Store(f)
   await st.load()
-  assert.equal(st.state.schemaVersion, 11)
+  assert.equal(st.state.schemaVersion, (await import('../lib/core.js')).SCHEMA_VERSION)
   const task = st.state.tasks['T-1']
   assert.equal(task.parentId, null)
   assert.deepEqual(task.childIds, [])
@@ -437,6 +437,72 @@ await t('schema 10→11：老卡补 parentId/childIds/ticket，老工单补结�
   assert.deepEqual(item.asks, [])
   assert.deepEqual(item.context, { facts: [], evidence: [] })
   assert.equal(item.impactIfNoAnswer, '')
+})
+
+// ---- H：schema 11 → 12（v0.002 / ADR-0005 与 ADR-0006） ---------------------
+//
+// 这条迁移的行为增量必须是零：只补字段，needsMerge 仍读 noMerge。
+// 归类错会把故障卡错标成"本来就不用合"，比不迁移更糟，所以要逐条钉住。
+await t('schema 11→12：noMerge 归类成 mergeState，worktree 补 state/patchPath', async () => {
+  const { Store } = await import('../lib/core.js')
+  const { writeFileSync } = await import('node:fs')
+  const f = join(dir, 'mig11.json')
+  writeFileSync(f, JSON.stringify({
+    schemaVersion: 11,
+    tasks: {
+      'T-ok': { id: 'T-ok', projectId: 'p', title: '要合并的卡', column: 'reviewing', noMerge: false },
+      'T-readonly': { id: 'T-readonly', projectId: 'p', title: '只读审计', column: 'done', noMerge: true, noMergeReason: '只读审计，没有代码改动' },
+      'T-busy': { id: 'T-busy', projectId: 'p', title: '分支被占', column: 'todo', noMerge: true, noMergeReason: "fatal: 'flow/T-busy' is already used by worktree at 'C:/x'" },
+      'T-nocommit': { id: 'T-nocommit', projectId: 'p', title: '空仓库', column: 'todo', noMerge: true, noMergeReason: 'fatal: invalid reference: HEAD' },
+    },
+    worktrees: {
+      'T-ok': { taskId: 'T-ok', projectId: 'p', path: 'C:/x/T-ok', branch: 'flow/T-ok', baseSha: null, state: 'ready', sharedDirs: [], createdAt: '2026-01-01T00:00:00Z' },
+      'T-legacy': { taskId: 'T-legacy', projectId: 'p', path: 'C:/x/T-legacy', branch: 'flow/T-legacy', baseSha: null, sharedDirs: [], createdAt: '2026-01-01T00:00:00Z' },
+    },
+  }))
+  const st = new Store(f)
+  await st.load()
+  assert.equal(st.state.schemaVersion, (await import('../lib/core.js')).SCHEMA_VERSION)
+  const ok = st.state.tasks['T-ok']
+  assert.equal(ok.mergeState, 'ready', '没有 noMerge 的卡是 ready')
+  assert.equal(ok.mergeReason, null)
+  assert.equal(ok.noMerge, false, '旧字段必须保留（I-12 之前 needsMerge 还读它）')
+  assert.equal(st.state.tasks['T-readonly'].mergeState, 'none', '只读卡静默，不显形')
+  assert.equal(st.state.tasks['T-readonly'].mergeReason, 'no-code-change')
+  assert.equal(st.state.tasks['T-busy'].mergeState, 'blocked', '分支被占是故障，不能标成不用合')
+  assert.equal(st.state.tasks['T-busy'].mergeReason, 'branch-busy')
+  assert.equal(st.state.tasks['T-nocommit'].mergeReason, 'no-commits')
+  assert.equal(st.state.worktrees['T-ok'].state, 'ready')
+  assert.equal(st.state.worktrees['T-ok'].patchPath, null)
+  assert.equal(st.state.worktrees['T-legacy'].state, 'ready', '历史记录缺 state 要补')
+  // 幂等：再加载一次不报错、归类不被重算成别的东西
+  const st2 = new Store(f)
+  await st2.load()
+  assert.equal(st2.state.tasks['T-busy'].mergeReason, 'branch-busy')
+})
+
+await t('schema 11→12：setNoMerge 走同一套归类，不写出第二种枚举', async () => {
+  const { Store } = await import('../lib/core.js')
+  const { FlowDomain, MERGE_STATES } = await import('../lib/domain.js')
+  const { writeFileSync } = await import('node:fs')
+  const f = join(dir, 'mig11b.json')
+  writeFileSync(f, JSON.stringify({
+    schemaVersion: 11,
+    projects: { p: { id: 'p', title: 'P', workspacePath: dir, config: {} } },
+    tasks: { 'T-1': { id: 'T-1', projectId: 'p', title: '卡', column: 'todo', noMerge: false } },
+  }))
+  const store = new Store(f)
+  await store.load()
+  const domain = new FlowDomain(store)
+  // 线上 T-043 的真实文本：分类必须是 branch-busy，而不是 no-code-change
+  await domain.setNoMerge('T-1', true, "fatal: 'flow/T-1' is already used by worktree at 'C:/x'")
+  const task = store.state.tasks['T-1']
+  assert.equal(task.mergeState, 'blocked')
+  assert.equal(task.mergeReason, 'branch-busy')
+  // blocked 也算"现在不能合"：noMerge=true 让验收直接落 done-no-merge，
+  assert.ok(MERGE_STATES.includes(task.mergeState))
+  await domain.setNoMerge('T-1', false)
+  assert.equal(store.state.tasks['T-1'].mergeState, 'ready')
 })
 
 console.log('')

@@ -4181,8 +4181,8 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
     assert.equal(items.find((x) => x.id === 'hi_b').duplicateOf, 'hi_a')
     assert.equal(items.find((x) => x.id === 'hi_c').status, 'archived')
     assert.equal(items.find((x) => x.id === 'hi_i').status, 'open', 'info 不动')
-    // 加载会一路迁移到当前版本（v1.39 起是 11）
-    assert.equal(st2.state.schemaVersion, 11)
+    // 加载会一路迁移到当前版本（跟着 SCHEMA_VERSION 走，别在这里钉死数字）
+    assert.equal(st2.state.schemaVersion, coreMod.SCHEMA_VERSION)
     // v1.39：老工单补结构化字段，老卡补父子字段
     assert.ok(Array.isArray(keep.asks), '老工单要补 asks 数组')
     assert.deepEqual(keep.context, { facts: [], evidence: [] })
