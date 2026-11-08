@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs",
+    "test": "node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/merge-guards.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs",
     "test:smoke": "node test/smoke.mjs",
     "test:client": "node test/client.mjs",
     "test:render": "node test/render.mjs",
@@ -43,7 +43,8 @@
     "test:remote": "node test/remote-closepull.mjs",
     "test:external": "node test/external-ingest.mjs",
     "test:v139": "node test/v139.mjs",
-    "test:view-contract": "node test/view-contract.mjs"
+    "test:view-contract": "node test/view-contract.mjs",
+    "test:merge-guards": "node test/merge-guards.mjs"
   },
   "description": "DSH flow workbench v1.0: human/issue dual-lane scheduler, chief-dispatcher-worker supervision, scope-aware dispatch, context budget compaction, /flow read-only dispatch mode and a native overview panel.",
   "files": [

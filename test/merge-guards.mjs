@@ -2,8 +2,10 @@
  * C-01：合并入口的 mergeState 守卫 + needs-rebase 语义修正 + PR 闸门拆分。
  *
  * 这张测试钉住四件事（都是"代码看起来做了、实际没做"的入口）：
- *   ① merge() / mergeLocked() 对 mergeState=none/blocked 的卡一律拒绝，**在动 git 之前**；
- *      undefined（schema 12 之前的老卡）放行，保持向后兼容；
+ *   ① merge() / mergeLocked() 的入口守卫，**在动 git 之前**：
+ *      none 一律拒；blocked 按原因二分 —— 契约类（head-mismatch / not-merged）拒，
+ *      环境类（out-of-scope-dirty 这类，环境修好之后应当能重试）放行；
+ *      undefined（schema 12 之前的老卡）与 ready/pending 放行，保持向后兼容；
  *   ② needs-rebase 现在只做「回派」：回 running + mergeState=pending，
  *      不再同时 setMergeState(blocked)（那是缺陷 2：回派与阻断互斥）；
  *      第 4 次（attempts>3）直接 blockMerge，不回派；
