@@ -3359,6 +3359,15 @@ window.__ModuleLoader__.load({
                   : '关着：纯本地看板模式。任务全靠人/主调度在看板上建，不接远程事件，也没有自动化开关。'),
               recordIssues ? h('div', { className: 'flowv-grid2' },
                 h('div', { className: 'flowv-field' },
+                  h('label', null, '自动接管远程 issue（autoLane）'),
+                  // C-09：这一项成为建卡开关。没设过（null）时显示「跟随补位」——
+                  // 那就是升级前的行为，不能悄悄变成关。
+                  h('select', {
+                    className: 'flowv-select',
+                    defaultValue: cfg.autoLane === null || cfg.autoLane === undefined ? 'x' : (cfg.autoLane ? '1' : '0'),
+                    onChange: function (e) { setCfg({ autoLane: e.target.value === 'x' ? undefined : e.target.value === '1' }) },
+                  }, h('option', { value: 'x' }, '跟随「自动补位派工」'), h('option', { value: '0' }, '关闭（不建卡）'), h('option', { value: '1' }, '开启（建卡并自动派工）'))),
+                h('div', { className: 'flowv-field' },
                   h('label', null, '自动补位派工'),
                   h('select', {
                     className: 'flowv-select', defaultValue: cfg.autoDispatch ? '1' : '0',

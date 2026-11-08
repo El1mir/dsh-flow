@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Store, SCHEMA_VERSION, MIGRATIONS, TRANSITIONS, isDelivered, deliveryState, DELIVERY_STATE } from '../lib/core.js'
+import { Store, SCHEMA_VERSION, MIGRATIONS, TRANSITIONS, applyTransition, isDelivered, deliveryState, DELIVERY_STATE } from '../lib/core.js'
 import { FlowDomain } from '../lib/domain.js'
 
 const NL = String.fromCharCode(10)
@@ -154,11 +154,27 @@ await t('markParentIntegration 给父卡写集成分支与 pending，并清掉 n
   assert.equal(got.noMerge, false, '父卡是要合并的，不能再标 noMerge')
 })
 
-// ---- E：状态机里没有给子卡的新 phase 兑现 -------------------------------
-await t('TRANSITIONS 里暂时没有 merge_into_parent（由 C-05 补）', () => {
-  // 这条不是「应该没有」的断言，而是把现状写下来：C-05 加这个动作时这里会红，
-  // 提醒改测试而不是让一个静默的缺失留在状态机里。
-  assert.equal(TRANSITIONS.merge_into_parent, undefined)
+// ---- E：子卡的新 phase 已经在状态机里兑现 -------------------------------
+await t('TRANSITIONS 有 merge_into_parent（C-05 落地）', () => {
+  const tr = TRANSITIONS.merge_into_parent
+  assert.ok(tr, '子卡合进父分支要有自己的迁移')
+  assert.deepEqual(tr.from, ['verifying', 'merging'])
+  assert.equal(tr.to, 'done')
+  assert.equal(tr.phase, 'merged-into-parent')
+})
+
+await t('merge_into_parent：子卡落 done/merged-into-parent，但不算已交付', () => {
+  const task = { id: 'T-900', parentId: 'T-800', column: 'verifying', phase: 'awaiting-acceptance', mergeState: 'pending', noMerge: false }
+  const next = applyTransition(task, 'merge_into_parent', { role: 'system' }, {})
+  assert.equal(next.column, 'done')
+  assert.equal(next.phase, 'merged-into-parent')
+  assert.equal(isDelivered(next), false, '子卡不算已交付（代码还在父分支上）')
+  assert.equal(deliveryState(next), 'merged-into-parent')
+})
+
+await t('merge_into_parent：没有 parentId 的卡走不了这条路', () => {
+  const task = { id: 'T-901', parentId: null, column: 'verifying', phase: 'awaiting-acceptance', mergeState: 'pending' }
+  assert.throws(() => applyTransition(task, 'merge_into_parent', { role: 'system' }, {}), /父分支/)
 })
 
 console.log(NL + pass + ' 通过，' + fails.length + ' 失败')

@@ -346,7 +346,11 @@ await t('rollupParent：子卡全部完成后父卡进待验收并发 children-d
   assert.equal(res.rolledUp, true, JSON.stringify(res))
   const parent = store.state.tasks[splitParent.id]
   assert.equal(parent.column, 'verifying', '父卡要进待验收')
-  assert.equal(parent.noMerge, true, '父卡不合并')
+  // C-05 / rf-01：父卡不再是「只做汇总、不合并」——它有集成分支 flow/<id>，
+  // 所有子卡的改动都在那儿等着一起合进 base（对外一个 PR）。
+  assert.equal(parent.noMerge, false, '父卡要合并（集成分支收口）')
+  assert.equal(parent.mergeState, 'pending', '父卡有待合并的集成分支')
+  assert.equal(parent.integrationBranch, 'flow/' + parent.id)
   await dispatcher.aggregator.flushAll('test')
   const pkt = rt.calls.find((c) => c.text && c.text.includes('【事件 task.children-done】'))
   assert.ok(pkt, '要通知调度父卡可以收口了')
