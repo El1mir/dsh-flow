@@ -3,6 +3,35 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.005 — 2026-11-08
+
+主题：**远程 PR 结束后，本地卡按车道收口**。
+
+这里的「PR」指 **GitHub/Gitea 上真实可见的 PR**，不是本地 `pull_requests` 快照。
+
+### 行为变化
+
+- **自动车道（`visibility='auto'`，不在看板上）**：远程 PR 一结束（被合了 / 被人关了），卡就地结束、不进生命周期管理。
+  被合了 → 记合并事实后落 `done/merged`；被关了没合并 → 落 `cancelled/remote-ended`。
+  结束不打扰人：不开请示，只留一条评论（`auto-lane` 巡检报告里也能看到）。
+- **人车道**：远程 PR 结束后仍按正常生命周期走。
+  被合了 → `review_approve` 落 `done/merged`（带远程的合并提交号）并通知调度员；
+  被关了没合并 → 卡**不动**，开一条请示由人决定继续 / 重开 PR / 取消。
+- 收口由调度按车道决定，**同步层只收集事实**（`refreshPulls` / `refreshExternalPulls` 产出 `ended[]`）。
+  这条边界是为了不让同步层拥有生命周期决定权。
+- 远程合并后本地 base 会尽力追一次（`git fetchBranch` + 集成检出 `advanceBase`）；追不上只如实评论，不假装本地也合了。
+- 外部 PR 卡也会对账：只查还开着的外部卡（`external.state === 'open'`），避免每轮把已结束的打一遍。
+
+### 新增迁移
+
+- `remote_ended`：`merging | running | verifying → cancelled`，phase `remote-ended`，角色 `system` / `dispatcher`。
+  为什么不复用 `cancel`：那条的 roles 只有 human ——「取消」是人的决定，这里结束卡的是**远程事实**。
+  看板上也因此能区分「人取消」与「PR 结束自动收尾」。
+
+### 新增测试
+
+- `test/remote-closeout.mjs`（8 checks）：自动车道合并收口、幂等、自动车道被关就地结束且不打扰人、
+  人车道合并收口并评论、人车道被关只开请示不动卡、外部卡同样规则且 `external.state` 落 closed。
 ## v0.004 — 2026-11-08
 
 主题：**外部 PR 打架时也按正常 PR 流程走**。

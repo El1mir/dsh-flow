@@ -40,6 +40,8 @@
 | **已交付（isDelivered）** | 唯一口径：`column==='done' && phase==='merged'`。统计交付率只能用它 | `lib/core.js` `isDelivered` / `deliveryState` |
 | **外部 PR 卡（external-pr）** | 别人开的 PR 变成的一张受限合并卡：落 merging、无检出、永不派工 | `kind: 'external-pr'`；`lib/domain.js` `createExternalPrTask`；守卫 `lib/dispatch.js` `dispatch()` |
 | **一次性抓取分支** | 外部 PR 的代码抓进本地用的 `external/pr-<n>`，合并后删掉 | `lib/git.js` `fetchRef` |
+| **PR 结束（PR ended）** | 远程 PR 进入 merged 或 closed 的状态；同步层只产出事实（`ended[]`），收口由调度按车道决定 | `lib/sync-engine.js` `refreshPulls` / `refreshExternalPulls`、`lib/scheduler.js` `closeoutEnded` |
+| **remote-ended** | `cancelled` 的一个 phase：自动车道的卡因为远程 PR 结束而自动收尾，区别于人主动 `cancel` | `lib/core.js` `TRANSITIONS.remote_ended` |
 | **冲突解决轮（resolver round）** | 外部 PR 与本 base 打架时，卡上落 `external.resolver=true` + `external.baseRef`，派工后工人从 `external/pr-<n>` 拉分支、把 base 合进来解冲突 | `lib/dispatch.js` `dispatch()` 守卫 / `buildExternalConflictPacket` / `mergeLocked` |
 | **headSha 锁定** | 外部 PR 建卡时记下的提交；他后来推新提交就判 `blocked/head-mismatch` | `lib/dispatch.js` `mergeLocked` |
 | **自动车道（autoLane）** | 只管「接管远程 issue → 建卡 → 派工」的开关；未设置时回退 `autoDispatch` | `lib/scheduler.js` `laneAutoOn` |
