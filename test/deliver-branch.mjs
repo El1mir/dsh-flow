@@ -69,6 +69,9 @@ await store.tx((s) => {
   p.noMerge = false
   c.parentId = p.id
   c.branchFrom = 'flow/' + p.id
+  // v0.008：子卡默认与父卡共用检出（不开分支）。这张测试钉的是**存量**子卡的收尾路径，
+  // 所以显式把它标成 legacy-branch —— 与线上 T-049 那种「已经自己拉了分支」的卡同形。
+  c.unitMode = 'legacy-branch'
   c.mergeState = 'pending'
   c.noMerge = false
   c.worktree = false

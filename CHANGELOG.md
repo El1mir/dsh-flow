@@ -3,6 +3,20 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.008（package 0.0.8，schema 14）
+
+### 子卡是工作单元
+- `needsMerge` 以**拓扑**判否：有父卡的卡永不走合并列（不再靠 `mergeState` 反推）。
+- `accept` 对子卡落 `done` / `done-in-parent`；`merge_skip` / `review_approve` / `review_risk` 对子卡一律拒（文案说明「子卡不参与合并」）。
+- 子卡与父卡**共用检出与分支**；派工抢 `unit:<parentId>` 租约，抢不到进 `phase=waiting-branch` 等下一拍。
+- 子卡验收不靠自述：比较 `unitStartSha` 与父分支当前 HEAD；没前进就是 `done-no-commit`。
+- 两处「子卡开 PR」的入口都加了守卫：`onMoved` 的 accept 分支、scheduler 的兜底补 PR。
+- 迁移 13→14：存量子卡按「有没有自己的分支」分成 `shared` / `legacy-branch`；legacy 卡验收时把子分支合进父分支、删子分支、作废 PR 快照。
+
+### PR 快照从 git 量
+- `openPr` 用 `git diff --numstat base..head` 算 `files/additions/deletions/summary`，不再用 `commitAll` 的 `changed`（工人自己提交过时它恒为空）。
+- `openPullRequest` 存这四个字段；同一 head 重开一次会把快照补回来（线上已判 risk 的卡自愈通道）。
+- 审核包里写明「快照是实测的；为空且 head≠base 属取数问题，重开一次 PR 会重算；不要把修快照派给工人」。
 ## v0.007（未发布）
 
 ### 卡片可以回退（调度与人都能）

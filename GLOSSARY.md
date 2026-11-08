@@ -80,3 +80,11 @@
 | **调度员自动续跑** | 调度员/主调度自己那轮被环境错误打断时，给同一个会话再发一条消息从断点继续。默认开，上限 5 次。 |
 | **dispatcherAutoResume / dispatcherAutoResumeMax** | 上面那条的全局设置项（`store.state.settings`）。 |
 | **error（收件箱 kind）** | 系统自己坏了（例如调度员连续失败到头）。与 `info` 同形状的通知，但计入「待处理」。 |
+
+## 2.7 工作单元（v0.008 起）
+
+- **工作单元（work unit）**：有 `parentId` 的卡。它只产生提交，落在父卡的集成分支上；没有自己的分支、PR、审核、合并。
+- **交付单元（delivery unit）**：父卡。持有 `flow/<parentId>` 分支、一个 PR、一次审核、一次合并到 base。
+- **done-in-parent**：工作单元的完成阶段 —— 含义是「改动已经在父分支上」，不是「已交付」。
+- **waiting-branch**：工作单元在等父检出空出来（同一父卡下子卡串行）。
+- **unitMode**：`shared`（默认，与父卡共用检出）或 `legacy-branch`（v0.008 之前已自己拉过分支的存量卡）。
