@@ -30,6 +30,20 @@
 | **隔离区（quarantine）** | 有未提交改动的检出不删，移到这里等人捞 | `lib/dispatch.js:1488-1500` |
 | **mergeState** | 替代 `noMerge` 布尔的三态：`none` / `pending` / `blocked`（+ 原因枚举） | ADR-0005（proposed）；现状 `lib/domain.js:1724` `setNoMerge` |
 
+## 2.5 交付（v0.003 起）
+
+| 词 | 含义 | 落点 |
+| --- | --- | --- |
+| **交付目标（delivery target）** | 一张卡合到哪里：普通卡 `base`，子卡 `branch`（父分支） | `lib/deliver.js` `resolveTarget` / `DELIVERY_TARGETS` |
+| **集成分支（integration branch）** | 拆过卡的父卡持有的 `flow/<父卡 id>`。子卡依次合进来，父卡收口时一次进 base，对外一个 PR | `lib/deliver.js` `integrationBranchOf/For`；`lib/domain.js` `markParentIntegration` |
+| **merged-into-parent** | 子卡的终态 phase：代码已进父分支、但**还没**进 base。`isDelivered` 为 false | `lib/core.js` `TRANSITIONS.merge_into_parent`；`isDelivered` |
+| **已交付（isDelivered）** | 唯一口径：`column==='done' && phase==='merged'`。统计交付率只能用它 | `lib/core.js` `isDelivered` / `deliveryState` |
+| **外部 PR 卡（external-pr）** | 别人开的 PR 变成的一张受限合并卡：落 merging、无检出、永不派工 | `kind: 'external-pr'`；`lib/domain.js` `createExternalPrTask`；守卫 `lib/dispatch.js` `dispatch()` |
+| **一次性抓取分支** | 外部 PR 的代码抓进本地用的 `external/pr-<n>`，合并后删掉 | `lib/git.js` `fetchRef` |
+| **headSha 锁定** | 外部 PR 建卡时记下的提交；他后来推新提交就判 `blocked/head-mismatch` | `lib/dispatch.js` `mergeLocked` |
+| **自动车道（autoLane）** | 只管「接管远程 issue → 建卡 → 派工」的开关；未设置时回退 `autoDispatch` | `lib/scheduler.js` `laneAutoOn` |
+| **可见性（visibility）** | 逐卡 `board` / `auto`。`auto` 不上看板，进自动车道折叠区 | `task.visibility`；`lib/http.js` `setTaskVisibility` |
+
 ## 3. 记录与监督
 
 | 词 | 含义 | 落点 |

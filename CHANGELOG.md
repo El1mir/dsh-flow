@@ -3,6 +3,44 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.003 — 2026-11-08
+
+主题：**一张卡 = 一分支 = 一 PR**（rf-01..rf-05 落地，实现票 C-00..C-11）。
+
+### 行为变化（会当场看见的）
+
+- **拆过卡的父卡持有集成分支** `flow/<父卡 id>`：子卡从父分支拉出、合回父分支，父卡收口时一次合进 base，对外**一个** PR。
+  子卡落 `done / merged-into-parent`，`isDelivered` 为 false（代码仍在父分支上）。只允许两层，子卡不能再拆。
+- **外部 PR 成为一种卡**（`kind: 'external-pr'`，开关 `recordPulls` 默认关）：代码从 `refs/pull/<n>/head` 抓到 `external/pr-<n>`，
+  headSha 建卡时锁定，变了判 `blocked / head-mismatch`；合并仍在本机发生；合并后关远程 PR 并删抓取分支。
+- **合并后关远程 PR**（`closePullOnMerge` 默认开）：`PATCH {state:'closed'}`，只关 PR 不删分支，失败只落评论不回滚。
+- **`autoLane` 取代 `autoDispatch` 成为建卡开关**：未设置时回退 `autoDispatch`（升级不会停止建卡）；`autoDispatch` 现在只表示 running 补位。
+- **`sync.since` 真的拦住建卡**：早于它的 issue 只落镜像（webhook 路径豁免）。为此 `listIssues` 与事件信封补上了 `createdAt`。
+- **自动车道的卡默认不上看板**（`visibility='auto'`）：进「自动车道」折叠区，可一键拉上板；请示不受影响。
+- **合并入口按 `mergeState` 守门**：`none` 拒；`blocked` 只有环境类可重试且带 10 分钟退避（`mergeRetryAt`）；契约类永不自动重试。
+- **`needs-rebase` 语义修正**：先退回 `running` 再回派（以前回派的工人无法 `stop`），并在回派时清掉旧 head 的审核结论。
+- **检出复用判据**：`ready` 才可派工；`blocked`（安装失败）复用同目录**重跑准备**而不是重建。
+
+### 数据迁移
+
+- `SCHEMA_VERSION` 12 → 13。任务新增 `kind`（默认 `card`）、`visibility`（默认 `board`）、`external`、`branchFrom`、`integrationBranch`。
+- 迁移**刻意不给已有子卡回填 `branchFrom`**：那些子卡的分支是从 base 拉的，它们的父分支在 git 里不存在；回填会让它们下次派工被判 `branch-missing`。
+- 新增配置键：`recordPulls`（默认 false）、`closePullOnMerge`（默认 true）。
+- **`autoLane` 刻意不进 DEFAULT_CONFIG**：一旦有默认值，`=== undefined` 的升级回退就失效，存量项目会停止建卡。
+
+### 修掉的 bug
+
+- `merge()` 以前只看 `column`，不看 `mergeState`：已判 blocked 的卡每 15 秒被自动合并重试一次，45 秒内烧完 `rebaseAttempts`。
+- `needs-rebase` 分支一次做两件相反的事（回派 + 阻断），且派工没有列守卫 → 回派的工人无法自停。
+- `ensureWorktree` 复用判据不排除 `blocked`，且 `recordWorktree` 先于 setup/install 落库 → 装依赖失败的检出会被再次复用，依赖永远装不上。
+- `removeWorktree` 默认拿项目 base 判断「分支合没合过」，把已合进父分支的子卡分支记成 `blocked / not-merged` 并覆盖 `mergeState`。
+- 集成检出在「合过一次别的分支」后与目标分支分叉，`ensure` 直接判 `integ-diverged`，导致那条分支再也合不进来。现在先确认上次合并**已落到某条分支**才允许拨过去。
+- `openPr` 的远程闸门挂在 `recordIssues` 上：关掉 issue 入站就发不出远程 PR。现在由 `recordPulls` 独立控制（兼容 `recordIssues`）。
+
+### 新增测试
+
+`schema13`（12）/ `merge-guards`（11）/ `automation-guards`（15）/ `panel-visibility`（12）/ `remote-closepull`（6）/ `external-ingest`（7）/ `external-merge`（8）/ `autolane`（12）/ `worktree-reuse`（6）/ `deliver-branch`（9）/ `view-contract`（5）—— 全部接进 `npm test`。
+
 ## v0.002 — 2026-11-08
 
 主题：**检出变成可丢弃的脚手架**（ADR-0001..0006 落地）。13 张实现票 I-00..I-12 全部完成，每票单独跑过 `npm test`。
