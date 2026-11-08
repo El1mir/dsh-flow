@@ -1,0 +1,11 @@
+# 本地备份与运行残留（不进版本库，也不进 CodeGraph 索引）
+.backup/
+*.bak
+docs/live/*.err
+.codegraph/
+node_modules/
+
+# 历史备份目录与本地日志（v0.001 建库时补充）
+.bak-*/
+.ft.log
+.quarantine/
