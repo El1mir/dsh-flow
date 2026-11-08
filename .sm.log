@@ -155,6 +155,11 @@
   ✓ v0.002 needs-rebase 有次数上限（第 3 次之后不再回派）
   ✓ v0.002 合并锁默认 10 分钟且能续租
   ✓ v0.002 启动对账清掉 merge: 前缀的幽灵锁
+  ✓ v0.002 pushRemote 项目合并成功后推送 base
+  ✓ v0.002 远程不可达时卡 blocked/push-failed 但本地合并结果保留
+  ✓ v0.002 合并进行中不许释放集成检出
+  ✓ v0.002 释放集成检出之后主检出可以切回 base
+  ✓ v0.002 没有集成检出时 status 如实报不存在
   ✓ 工位身份名是 human调度1 / human工人1 / auto调度1 这种
   ✓ 总调度者保留自己的名字（那是用户自己的聊天框）
   ✓ 基础分支默认留空 = 自动探测（写死 main 会把 master 仓库带偏）
@@ -436,4 +441,4 @@
   ✓ v1.36 合并后冒烟：配置了就跑，失败会阻塞卡片并留下输出
   ✓ v1.35 autoMerge 项目有 block 级判据时请调度审核，而不是系统代写 approved
 
-437 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-hGZ2uz\flow.json
+442 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-DI9Gkk\flow.json

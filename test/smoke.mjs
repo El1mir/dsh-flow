@@ -943,6 +943,7 @@ await t('配置调小不删已有工位', () => assert.equal(Object.values(store
 const { execFileSync } = await import('node:child_process')
 const { writeFileSync, existsSync } = await import('node:fs')
 const sh = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+const gitExists = (p) => existsSync(p)
 const repo = mkdtempSync(join(tmpdir(), 'flow-repo-'))
 sh(repo, ['init', '-q', '-b', 'main'])
 sh(repo, ['config', 'user.email', 'flow@local'])
@@ -1261,6 +1262,73 @@ await t('主仓库没有被污染', () => assert.equal(readFileSync(join(repo, '
     assert.ok(Array.isArray(rec.merges) && rec.merges.length >= 1)
   })
 }
+// ---- v0.002：pushRemote 项目合并后 push base + 释放集成检出（I-04）----------
+{
+  const { integDirFor } = await import('../lib/integration.js')
+  const bare = join(dir, 'origin.git')
+  sh(dir, ['init', '-q', '--bare', bare])
+  sh(repo, ['remote', 'add', 'origin', bare])
+  sh(repo, ['push', '-q', '-u', 'origin', 'main'])
+  await domain.updateProjectConfig(gp.id, { pushRemote: true }, { role: 'human' })
+
+  const mkPushReady = async (title, file) => {
+    const tk = await domain.createTask(gp.id, { title, acceptance: ['x'] })
+    await domain.move(tk.id, 'claim', { role: 'dispatcher' })
+    await domain.setPlan(tk.id, '1. x', { role: 'dispatcher' })
+    await domain.move(tk.id, 'plan_ready', { role: 'dispatcher' })
+    await domain.move(tk.id, 'approve', { role: 'human', id: 'me' })
+    const w = domain.worktreeOf(tk.id)
+    writeFileSync(join(w.path, file), 'worker' + String.fromCharCode(10))
+    await dispatcher.openPr(store.state.tasks[tk.id])
+    await domain.move(tk.id, 'stop', { role: 'worker', id: 'w' }, { stopReport: { summary: 'ok', tests: 'x', files: [file] } })
+    await domain.move(tk.id, 'accept', { role: 'human', id: 'me' })
+    await domain.move(tk.id, 'pr_open', { role: 'dispatcher', id: 'd1' })
+    return tk.id
+  }
+
+  const pId = await mkPushReady('pushRemote 合并后要推 base', 'pushed-probe.txt')
+  const pRes = await dispatcher.merge(store.state.tasks[pId], { by: 'human' })
+  await t('v0.002 pushRemote 项目合并成功后推送 base', () => {
+    assert.equal(pRes.ok, true, JSON.stringify(pRes))
+    const local = sh(repo, ['rev-parse', 'main']).trim()
+    const remote = sh(bare, ['rev-parse', 'main']).trim()
+    assert.equal(remote, local, '远程 base 必须跟本地一致，否则 PR 永远 open')
+  })
+
+  const fId = await mkPushReady('推送失败也要保住本地合并', 'push-fail-probe.txt')
+  sh(repo, ['remote', 'set-url', 'origin', join(dir, 'no-such-remote.git')])
+  const fRes = await dispatcher.merge(store.state.tasks[fId], { by: 'human' })
+  await t('v0.002 远程不可达时卡 blocked/push-failed 但本地合并结果保留', () => {
+    assert.equal(fRes.ok, false)
+    assert.equal(fRes.pushFailed, true)
+    assert.equal(store.state.tasks[fId].mergeState, 'blocked')
+    assert.equal(store.state.tasks[fId].mergeReason, 'push-failed')
+    assert.ok(gitExists(join(integDirFor(gp), 'push-fail-probe.txt')), '撤销已落地的合并比不同步更危险')
+  })
+  sh(repo, ['remote', 'set-url', 'origin', bare])
+  await domain.updateProjectConfig(gp.id, { pushRemote: false }, { role: 'human' })
+
+  await t('v0.002 合并进行中不许释放集成检出', async () => {
+    await domain.lockMerge(gp.id, 'T-INFLIGHT')
+    const rel = await dispatcher.releaseIntegration(gp, {})
+    assert.equal(rel.ok, false)
+    assert.equal(rel.reason, 'merging')
+    for (const k of Object.keys(store.state.leases).filter((x) => x.startsWith('merge:'))) delete store.state.leases[k]
+  })
+  await t('v0.002 释放集成检出之后主检出可以切回 base', async () => {
+    assert.ok(gitExists(integDirFor(gp)), '先要在')
+    const rel = await dispatcher.releaseIntegration(gp, {})
+    assert.equal(rel.ok, true, JSON.stringify(rel))
+    assert.ok(!gitExists(integDirFor(gp)), '目录要被删掉')
+    sh(repo, ['checkout', '-q', 'main'])
+    assert.equal(sh(repo, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(), 'main')
+  })
+  await t('v0.002 没有集成检出时 status 如实报不存在', async () => {
+    const st = await dispatcher.integrationStatus(gp, {})
+    assert.equal(st.exists, false)
+  })
+}
+
 // ---- v1.16：身份名 = 车道 + 角色 + 序号 ------------------------------------
 {
   const { agentLabel } = domainMod

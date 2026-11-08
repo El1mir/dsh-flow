@@ -3181,6 +3181,25 @@ window.__ModuleLoader__.load({
                     className: 'flowv-input', defaultValue: cfg.baseBranch || '', placeholder: '自动探测（origin/HEAD → main → master → 当前分支）',
                     onBlur: function (e) { setCfg({ baseBranch: e.target.value.trim() }) },
                   }))),
+              // v0.002（ADR-0004）：集成检出说明。base 默认被它占住 —— 这是本方案唯一
+              // 会让人"突然切不回 base"的副作用，必须写在人找得到的地方。
+              h('div', { className: 'flowv-field' },
+                h('label', null, '集成检出'),
+                h('div', { className: 'flowv-hint' },
+                  '合并在一个常驻的独立检出里跑（与任务检出同根、目录名 __integ__），它默认把基础分支占住。',
+                  h('br'),
+                  '所以在它存在期间，主检出里 ', h('code', null, 'git switch ' + (cfg.baseBranch || 'main')), ' 会报 ', h('code', null, 'already used by worktree'),
+                  ' —— 想在主检出里看基础分支，先点下面的「释放」。需要合并时会自动重建。'),
+                h('div', { className: 'flowv-actions' },
+                  h(Btn, {
+                    small: true,
+                    onClick: function () {
+                      act('integration.release', { projectId: project.id }).then(function (r) {
+                        if (!r) return
+                        setNotice(r.removed ? '集成检出已释放，主检出现在可以切回基础分支' : '当时没有集成检出，无需释放')
+                      })
+                    },
+                  }, '释放集成检出'))),
               recordIssues ? h('div', { className: 'flowv-grid2' },
                 h('div', { className: 'flowv-field' },
                   h('label', null, '合并策略'),
