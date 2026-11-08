@@ -146,6 +146,15 @@
   ✓ v0.002 范围外的脏文件不拦
   ✓ v0.002 没设阅读范围的任务不做越界检查（人的日常编辑不该被当越界）
   ✓ v0.002 overrideOutOfScope: true 可以显式放行，并留下授权评论
+  ✓ v0.002 集成检出自己变脏时合并被拦下（blocked/dirty）
+  ✓ v0.002 环境类失败不回派工人（不然工人白做一次软合并）
+  ✓ v0.002 清掉集成检出的脏文件后可以继续合
+  ✓ v0.002 rebase 策略走 ff-only 而不是 checkout 任务分支
+  ✓ v0.002 ff 之后 worker 分支没被 checkout 夺走（它是 fast-forward 的）
+  ✓ v0.002 分支落后 base：ff-only 失败 → blocked/needs-rebase + 回派一次
+  ✓ v0.002 needs-rebase 有次数上限（第 3 次之后不再回派）
+  ✓ v0.002 合并锁默认 10 分钟且能续租
+  ✓ v0.002 启动对账清掉 merge: 前缀的幽灵锁
   ✓ 工位身份名是 human调度1 / human工人1 / auto调度1 这种
   ✓ 总调度者保留自己的名字（那是用户自己的聊天框）
   ✓ 基础分支默认留空 = 自动探测（写死 main 会把 master 仓库带偏）
@@ -427,4 +436,4 @@
   ✓ v1.36 合并后冒烟：配置了就跑，失败会阻塞卡片并留下输出
   ✓ v1.35 autoMerge 项目有 block 级判据时请调度审核，而不是系统代写 approved
 
-428 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-iLl5kT\flow.json
+437 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-hGZ2uz\flow.json

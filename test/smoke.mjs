@@ -1151,6 +1151,116 @@ await t('主仓库没有被污染', () => assert.equal(readFileSync(join(repo, '
   })
   sh(repo, ['checkout', '-q', '--', 'README.md'])
 }
+// ---- v0.002：拒绝语义分家 / rebase 改 ff-only / 合并锁续租（I-03）----------
+{
+  const { integDirFor } = await import('../lib/integration.js')
+  const { rm } = await import('node:fs/promises')
+  const mkReady = async (title) => {
+    const tk = await domain.createTask(gp.id, { title, acceptance: ['x'] })
+    await domain.move(tk.id, 'claim', { role: 'dispatcher' })
+    await domain.setPlan(tk.id, '1. x', { role: 'dispatcher' })
+    await domain.move(tk.id, 'plan_ready', { role: 'dispatcher' })
+    await domain.move(tk.id, 'approve', { role: 'human', id: 'me' })
+    return tk.id
+  }
+  const finish = async (id, fileName, content) => {
+    const w = domain.worktreeOf(id)
+    writeFileSync(join(w.path, fileName), content)
+    await dispatcher.openPr(store.state.tasks[id])
+    await domain.move(id, 'stop', { role: 'worker', id: 'w' }, { stopReport: { summary: 'ok', tests: 'x', files: [fileName] } })
+    await domain.move(id, 'accept', { role: 'human', id: 'me' })
+    await domain.move(id, 'pr_open', { role: 'dispatcher', id: 'd1' })
+  }
+
+  // ① 集成检出自己变脏 → blocked/dirty，卡不动、不派工
+  const dId = await mkReady('集成检出脏了要拦住')
+  await finish(dId, 'dirty-probe.txt', 'worker\n')
+  writeFileSync(join(integDirFor(gp), 'stray.txt'), '不该出现的文件\n')
+  const before = rt.calls.length
+  const dRes = await dispatcher.merge(store.state.tasks[dId], { by: 'human' })
+  await t('v0.002 集成检出自己变脏时合并被拦下（blocked/dirty）', () => {
+    assert.equal(dRes.ok, false)
+    assert.equal(dRes.blocked, true)
+    assert.equal(dRes.reason, 'integ-dirty')
+    assert.equal(store.state.tasks[dId].mergeState, 'blocked')
+    assert.equal(store.state.tasks[dId].column, 'merging', '卡不该动')
+  })
+  await t('v0.002 环境类失败不回派工人（不然工人白做一次软合并）', () => {
+    const prompted = rt.calls.slice(before).filter((c) => c.text && /软合并|rebase/.test(String(c.text)))
+    assert.equal(prompted.length, 0, '不该有新的派工：' + JSON.stringify(prompted.slice(0, 2)))
+  })
+  await rm(join(integDirFor(gp), 'stray.txt'), { force: true })
+  const dRes2 = await dispatcher.merge(store.state.tasks[dId], { by: 'human' })
+  await t('v0.002 清掉集成检出的脏文件后可以继续合', () => assert.equal(dRes2.ok, true, JSON.stringify(dRes2)))
+
+  // ② mergeStrategy=rebase：走 ff-only
+  await domain.updateProjectConfig(gp.id, { mergeStrategy: 'rebase' }, { role: 'human' })
+  const rId = await mkReady('rebase 项目走 ff-only')
+  await finish(rId, 'ff-probe.txt', 'worker\n')
+  const rRes = await dispatcher.merge(store.state.tasks[rId], { by: 'human' })
+  await t('v0.002 rebase 策略走 ff-only 而不是 checkout 任务分支', () => {
+    assert.equal(rRes.ok, true, JSON.stringify(rRes))
+    assert.equal(rRes.strategy, 'rebase')
+    assert.equal(store.state.tasks[rId].column, 'done')
+  })
+  await t('v0.002 ff 之后 worker 分支没被 checkout 夺走（它是 fast-forward 的）', () => {
+    assert.ok(domain.worktreeOf(rId) === null, '合并成功后任务检出已摘除')
+  })
+
+  // ③ needs-rebase：分支落后 base，ff 不动 → 回派一次并 blocked
+  const nId = await mkReady('分支落后 base 时要发回工人')
+  await finish(nId, 'behind-probe.txt', 'worker\n')
+  // 制造"分支落后"：直接往 base 上推进一个提交（模拟别的卡先合了）。
+  // 注意不能在主检出里提交 —— 它此刻停在 feature/human-work 上，那样推进的是另一条分支。
+  const advWt = join(dir, 'advance-main')
+  sh(repo, ['worktree', 'add', '-q', advWt, 'main'])
+  writeFileSync(join(advWt, 'someone-else.txt'), '别人的改动\n')
+  sh(advWt, ['add', '-A']); sh(advWt, ['commit', '-qm', '别人的提交'])
+  sh(repo, ['worktree', 'remove', '--force', advWt])
+  const nRes = await dispatcher.merge(store.state.tasks[nId], { by: 'human' })
+  await t('v0.002 分支落后 base：ff-only 失败 → blocked/needs-rebase + 回派一次', () => {
+    assert.equal(nRes.ok, false)
+    assert.equal(nRes.reason, 'needs-rebase')
+    assert.equal(nRes.attempts, 1)
+    assert.equal(store.state.tasks[nId].mergeState, 'blocked')
+    assert.equal(store.state.tasks[nId].mergeReason, 'needs-rebase')
+  })
+  await t('v0.002 needs-rebase 有次数上限（第 3 次之后不再回派）', async () => {
+    const tk = store.state.tasks[nId]
+    tk.rebaseAttempts = 3
+    const more = await dispatcher.merge(store.state.tasks[nId], { by: 'human' })
+    assert.equal(more.ok, false)
+    assert.equal(store.state.tasks[nId].rebaseAttempts, 4)
+    assert.match(String(store.state.tasks[nId].noMergeReason || ''), /上限 3/)
+    tk.rebaseAttempts = 0
+  })
+  await domain.updateProjectConfig(gp.id, { mergeStrategy: 'merge' }, { role: 'human' })
+
+  // ④ 合并锁续租与恢复
+  await t('v0.002 合并锁默认 10 分钟且能续租', async () => {
+    const lock = await domain.lockMerge(gp.id, 'T-TTL')
+    assert.equal(lock.ok, true)
+    // 抢锁失败（证明锁在）→ 续租后仍失败 → 手工作废后能拿到
+    const blocked = await domain.lockMerge(gp.id, 'T-other')
+    assert.equal(blocked.ok, false)
+    const renewed = await domain.renewMerge(gp.id, lock.token)
+    assert.equal(renewed.ok, true)
+    const stale = store.state.leases['merge:' + gp.id]
+    assert.ok(Date.parse ? true : true)
+    assert.ok(stale.expiresAt - Date.now() > 60 * 1000, '续租后剩余时间要长于旧的 60s ttl')
+    await domain.unlockMerge(gp.id, lock.token)
+    assert.equal((await domain.lockMerge(gp.id, 'T-other')).ok, true)
+    await domain.unlockMerge(gp.id, (await domain.lockMerge(gp.id, 'T-x')).token || store.state.leases['merge:' + gp.id].token)
+    for (const k of Object.keys(store.state.leases).filter((x) => x.startsWith('merge:'))) delete store.state.leases[k]
+  })
+  await t('v0.002 启动对账清掉 merge: 前缀的幽灵锁', async () => {
+    await domain.lockMerge(gp.id, 'T-restart')
+    assert.ok(store.state.leases['merge:' + gp.id], '锁要先在')
+    const rec = await domain.recoverRuns(Date.now() + 1000)
+    assert.equal(store.state.leases['merge:' + gp.id], undefined, '进程重启后不该还锁着仓库')
+    assert.ok(Array.isArray(rec.merges) && rec.merges.length >= 1)
+  })
+}
 // ---- v1.16：身份名 = 车道 + 角色 + 序号 ------------------------------------
 {
   const { agentLabel } = domainMod
