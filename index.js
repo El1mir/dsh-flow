@@ -1691,6 +1691,20 @@ let syncEngine = null
     tryMount()
   }
 
+  // I-10（ADR-0006 §2）：启动重活 —— 对账**会动仓库**，所以后台跑，不阻塞就绪。
+  //
+  // 启动这一路与 tick 那一路的分工是这样定的：tick 每 15 秒一次，若它有权删目录，
+  // 就等于让一个高频、无人值守的循环去判断「这个目录是不是垃圾」；判错的代价是工人正在干的活消失。
+  // 启动这一次是低频的、有人的（刚开机/刚重启），适合做真正的修复。
+  storeReady
+    .then(() => (dispatcher && typeof dispatcher.reconcileWorktrees === 'function' ? dispatcher.reconcileWorktrees({}) : null))
+    .then((res) => {
+      if (!res || !res.ok) return
+      const acted = (res.actions || []).filter((a) => !/^would-/.test(String(a.kind)))
+      if (acted.length) log('worktree reconcile: ' + acted.length + ' action(s) · ' + acted.map((a) => a.kind).join(','))
+      if ((res.skipped || []).length) log('worktree reconcile skipped: ' + res.skipped.length)
+    })
+    .catch((err) => log('worktree reconcile failed: ' + msgOf(err)))
   log('ready · data=' + DATA_FILE())
 
   return async () => {

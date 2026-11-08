@@ -1948,6 +1948,100 @@ window.__ModuleLoader__.load({
         // v1.37：重新设计的 4 行卡片
         // 行1：状态点 + ID + 车道 + 时间；行2：标题；行3：阻塞/下一步；行4：执行者·验收进度·请示数·PR
         var PROGRESS_STATE_LABEL = { 'on-track': '进行中', waiting: '等待中', blocked: '已阻塞', partial: '部分完成', done: '本轮完成' }
+
+        // ---- mergeState 的读侧表（ADR-0005）------------------------------------
+        //
+        // 为什么在这里内联一份，而不是 import lib/merge-state.js：
+        // client.js 是 window.__ModuleLoader__ 的 bundle（id: '@local/dsh-flow'），
+        // 整个文件没有 import/export —— 宿主只负责把模块装进浏览器，浏览器里拿不到
+        // lib/*.js 的模块图，相对路径的 ESM import 在这里根本不会被解析。
+        // 所以表在客户端必须有一份**同形状的副本**。
+        //
+        // 唯一来源仍是 lib/merge-state.js。改一处要改两处：test/merge-state.mjs
+        // 会逐条比对两边的 label / fix，漏改一处测试就红 —— 宁可测试红，也不能让
+        // 看板 chip 和详情行各说各话。
+        var MERGE_REASON = {
+          'no-code-change': { label: '没有代码改动', fix: '无需处理：这张卡的交付物不是代码', tone: 'info' },
+          'coordination-card': { label: '协调卡', fix: '无需处理：父卡只做汇总，改动在子卡里合并', tone: 'info' },
+          'no-worktree': { label: '没有检出', fix: '本身就按主工作区交付，无需处理', tone: 'info' },
+          'not-a-repo': { label: '不是 Git 仓库', fix: '无需处理：改动直接落在工作区，没有分支可合', tone: 'warn' },
+          'no-commits': { label: '缺基线提交', fix: '初始化仓库：在项目目录执行 `git add -A && git commit -m "baseline"`', tone: 'warn' },
+          'base-missing': { label: '基线分支不存在', fix: '改项目设置里的基线分支（`git branch --show-current` 看真实分支名）', tone: 'bad' },
+          'branch-busy': { label: '分支被占用', fix: '清掉残留检出：`git worktree list` 找到占用者，再 `git worktree remove <该目录>`', tone: 'bad' },
+          'head-mismatch': { label: '验收后又提交了', fix: '重新验收一次（`git log --oneline -3` 确认当前提交）', tone: 'bad' },
+          'out-of-scope-dirty': { label: '改到了范围外', fix: '把范围外的改动退回或另开一张卡，再重新派工', tone: 'bad' },
+          'worktree-missing': { label: '检出不见了', fix: '重新派工会重建检出（`git worktree list` 先确认它真的没了）', tone: 'bad' },
+        }
+        var MERGE_STATE_LABEL = { none: '不需要合并', pending: '等待合并', blocked: '合不了', ready: '可合并' }
+
+        // 与 lib/merge-state.js 的 mergeReasonOf 同规则：未知原因是线上数据里可能出现的东西，
+        // 一次 undefined 就是整页白屏 —— 兜底退回任务自己那句人话。
+        var mergeReasonOf = function (task) {
+          var t = task || {}
+          var hit = t.mergeReason ? MERGE_REASON[t.mergeReason] : null
+          if (hit) return hit
+          return { label: String(t.noMergeReason || ''), fix: '', tone: 'info', state: t.mergeState || null }
+        }
+
+        // chip 的 title 是单行纯文本，反引号在那里没有意义；详情页才按反引号切成等宽段。
+        var mergeFixTitle = function (fix) { return String(fix || '').replace(/`/g, '') }
+
+        // fix 里的动作用反引号圈住可复制命令；只有偶数段是正文、奇数段是命令。
+        var mergeFixNodes = function (fix) {
+          var parts = String(fix || '').split('`')
+          var out = []
+          for (var i = 0; i < parts.length; i += 1) {
+            if (!parts[i]) continue
+            out.push(i % 2 === 1
+              ? h('span', { key: 'mfix' + i, className: 'flowv-mono' }, parts[i])
+              : h('span', { key: 'mfix' + i }, parts[i]))
+          }
+          return out
+        }
+
+        /**
+         * 看板卡片上的合并徽标。只有 blocked / pending 出声：
+         * none 是"本来就不用合"，占一个位置反而会把真故障淹掉（ADR-0005 界面取舍 1）；
+         * ready 是终态里的正常值，出 chip 只会让每张卡都挂一个彩色标。
+         */
+        var mergeBadgeOf = function (t) {
+          var state = t && t.mergeState
+          if (state !== 'blocked' && state !== 'pending') return null
+          var info = mergeReasonOf(t)
+          return {
+            tone: state === 'pending' ? 'info' : (info.tone || 'bad'),
+            text: info.label || MERGE_STATE_LABEL[state] || state,
+            title: mergeFixTitle(info.fix) || (MERGE_STATE_LABEL[state] || state),
+          }
+        }
+
+        /**
+         * 详情页「合并」行：状态 · 原因，blocked 再附一行修复动作。
+         *
+         * 为什么 blocked 要两行：详情页是人来动手的地方，修复动作藏进 title 等于没有；
+         * 看板才需要收成一枚 chip。none 保留一行淡的（"不需要合并 · 原因"），
+         * 因为看板要扫、详情要解释（ADR-0005 界面取舍 1）。
+         * 没有 mergeState 的老数据仍显示原来那句"不走合并（原因）"—— 升级窗口里
+         * 服务端可能还没重启，详情页不能因此少一项。
+         */
+        var mergeKvRow = function (task) {
+          var state = task && task.mergeState
+          if (!state) {
+            if (!task || !task.noMerge) return null
+            return ['合并', h('span', { title: task.noMergeReason || '' }, '不走合并（' + (task.noMergeReason || '没有 worktree') + '）')]
+          }
+          var info = mergeReasonOf(task)
+          var text = (MERGE_STATE_LABEL[state] || state) + (info.label ? ' · ' + info.label : '')
+          if (state === 'blocked') {
+            return ['合并', h('div', null,
+              h('div', { style: { color: 'var(--dsw-alias-state-error-primary)' } }, text),
+              info.fix
+                ? h('div', { className: 'flowv-hint', style: { marginTop: 2 } }, '还能修：', mergeFixNodes(info.fix))
+                : null)]
+          }
+          return ['合并', h('span', { style: { color: state === 'none' ? 'var(--dsw-alias-label-tertiary)' : undefined }, title: info.fix ? mergeFixTitle(info.fix) : '' }, text)]
+        }
+
         var boardCard = function (t) {
           var pg = t.progress
           var pgState = pg ? pg.state : null
@@ -1956,6 +2050,11 @@ window.__ModuleLoader__.load({
           // ── 行2：标题（保留高优先标签紧靠卡号）
           var sideBadges = []
           if (t.lane === 'issue') sideBadges.push(h(Chip, { key: 'lane' }, 'issue'))
+          // ADR-0005：合并受阻是**故障**，必须一直在看板上显形 —— 以前 noMerge 根本不在
+          // sideBadges 里，T-012/T-043 这种"合不了"和"本来不用合"长得一模一样。
+          // pending 也给一个（"排队等合并"是会被问"怎么还没 done"的状态）；none / ready 不出。
+          var mergeBadge = mergeBadgeOf(t)
+          if (mergeBadge) sideBadges.push(h(Chip, { key: 'merge', tone: mergeBadge.tone, title: mergeBadge.title }, mergeBadge.text))
           if (t.risk && t.risk.level === 'high') sideBadges.push(h(Chip, { key: 'risk', tone: 'bad', title: (t.risk.reasons || []).join('；') }, '⚡高风险'))
           if (t.reopenRequested) sideBadges.push(h(Chip, { key: 'rrq', tone: 'warn', title: '申请重开：' + t.reopenRequested.reason }, '重开申请'))
           // v1.39：父卡的子任务进度（子卡本身不上看板，只在父卡详情里看和打开）
@@ -2844,7 +2943,7 @@ window.__ModuleLoader__.load({
                       task.headSha ? ['head', h('span', { className: 'flowv-mono' }, shortSha(task.headSha))] : null,
                       d.pullRequest ? ['PR', (d.pullRequest.status || '') + ' · ' + (d.pullRequest.branch || '')] : null,
                       task.blocked ? ['阻塞', h('span', { style: { color: 'var(--dsw-alias-state-error-primary)' } }, task.blocked.reason || '—')] : null,
-                      task.noMerge ? ['合并', h('span', { title: task.noMergeReason || '' }, '不走合并（' + (task.noMergeReason || '没有 worktree') + '）')] : null,
+                      mergeKvRow(task),
                       task.reopenRequested ? ['重开请求', (task.reopenRequested.by || 'agent') + '：' + (task.reopenRequested.reason || '')] : null,
                       task.inspection ? ['巡检', (task.inspection.verdict || '') + ((task.inspection.reasons || []).length ? ' · ' + (task.inspection.reasons || []).join('；') : '')] : null,
                       ['发起对话', task.originSessionId ? h('span', { className: 'flowv-mono' }, String(task.originSessionId).slice(0, 18)) : '—（非对话发起）'],

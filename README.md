@@ -16,7 +16,7 @@ DSH 插件：调度台工作台。把「需求 → 拆解 → 派工 → 工人 
 - 想在主检出里切回基础分支：设置页点「释放集成检出」，或调动作 `integration.release`。
   需要合并时会自动重建。
 - 集成检出**不**等于任务检出：它不装依赖（ADR-0003），所以依赖环境类的 `postMergeCheck`
-  在它里面跑会失败。真要在合并后跑依赖测试，得先让它能装上（I-11 的 `install.commands`）。
+  在它里面跑会失败。真要在合并后跑依赖测试，得先让它能装上（`install.commands`，见下）。
 
 ### 为什么值得这个代价
 
@@ -43,6 +43,61 @@ DSH 插件：调度台工作台。把「需求 → 拆解 → 派工 → 工人 
 
 合并锁从 60s 提到 **10 分钟**并且每 30s 续租；进程重启时 `recoverRuns` 会清掉 `merge:` 前缀的幽灵锁，
 否则重启后的十分钟里这个仓库谁都合不了。
+## v0.002：检出准备（ADR-0003）—— 依赖各装各的，默认不再链接
+
+这一条也是**行为变更**：新建的检出现在**没有**依赖，`node_modules` / `.venv` 不会再从主仓库链进来。
+
+### 你会看到什么
+
+- 工人第一次跑测试会报「模块不存在」。这是**预期**的：检出里只有版本库里的文件。
+- 想让它能开工，在项目配置里写 `install`：
+
+  ```json
+  { "install": { "commands": ["uv sync --frozen", "pnpm install --frozen-lockfile"], "timeoutMs": 600000 } }
+  ```
+
+  建出检出后按序执行，cwd 就是那个检出。任一条非零退出 → 卡标 `blocked/install-failed`、评论写明是哪条命令、**这一轮不派工**。
+- `setup` 同形状，先于 `install` 跑（拷 `.env`、建本地数据目录这类低成本准备）。
+- 想共享只读目录（文档、样例数据）：`sharedDirs: ["docs-fixtures"]`。**别把 `.venv` / `node_modules` 写进去**。
+
+### 为什么不再链接（真机实测）
+
+`backend/.venv` 里有 166 个包（含 pytest、2GB nvidia），而 `requirements.txt` 只有 128 行且**没有 pytest**。
+链接之后工人跑测试用的是**主仓库的环境**：绿了不说明这次改动对，红了也不说明错。
+成本也不是问题：热 store 上 `uv pip install --link-mode hardlink` 5.6s / +11MB、`pnpm install --frozen-lockfile` 48.9s / +114MB，
+而 `git worktree add` 只要 1.1s —— **检出不是成本，装依赖才是**，且这件事该由 install 命令诚实做一次。
+
+### 已知限制
+
+没有 lockfile 的项目（比如 BiliNote 的 `requirements.txt` 缺 pytest、无 `uv.lock`）装不出可复现的环境。
+这是仓库侧的债，本版本不替它猜版本：install 命令怎么写就怎么装，装不出来就是 `install-failed`。
+
+## v0.002：检出对账（ADR-0006）
+
+git 是**存在性权威**，`flow.json` 里的登记表只是注释。两边不一致时以 `git worktree list --porcelain` 为准。
+
+### 你会看到什么
+
+- 启动时后台跑一次对账（不阻塞就绪），日志里可能出现
+  `worktree reconcile: 3 action(s) · drop-record,archive-dir,unlock`。
+- tick 只**记录**漂移，不动仓库：结论写在 `store.maintenance.worktreeDrift`。
+  为什么 tick 不动手：它 15 秒一次，而「检出建好 → 登记写进去」的窗口是秒级的 ——
+  让高频无人值守循环有权删目录，判错一次就删掉正在干活的现场。
+- 干净检出回收后，已合并的分支会被删（`branch -d`）；**没合并的分支绝不 `-D`**，
+  卡上留一条「分支未合进 base，没有删」的评论并给出恢复指针。
+
+### 五种不一致
+
+| 分类 | 含义 | 处理 |
+| --- | --- | --- |
+| `in-sync` | git 有、登记有、目录在 | 不动 |
+| `ghost` | git 有、登记有、**目录没了** | 收口登记，卡上留「对账」评论 |
+| `stale-record` | 登记有、git 与磁盘都没有 | 删登记 |
+| `orphan-dir` | 目录在、git 与登记都没有 | 10 分钟内不动（grace）；空目录删，非空归档到 `.quarantine/orphan-*` |
+| `branch-busy` | 同一分支被两个检出占用 | 只报告，等人判断 |
+| `external` | git 有、登记没有（别人手工建的） | 不动 |
+
+开关：`worktreeReconcile: false` 整个关掉；`worktreeReconcileIntervalMs` 调 tick 节流（默认 6h）。
 ## 装法
 
 ```bash
