@@ -642,6 +642,20 @@ window.__ModuleLoader__.load({
       '.flowv-board-head{display:flex;align-items:baseline;gap:8px;margin:2px 0 8px}',
       '.flowv-board-title{font-size:12.5px;font-weight:600;letter-spacing:-.01em}',
       '.flowv-board-head .flowv-hint{margin:0}',
+      /* C-03：自动车道（auto 卡不上板，但要看得见）。标题行常驻，展开后是台账。 */
+      '.flowv-auto-head{display:flex;align-items:baseline;gap:8px;margin:0 0 6px}',
+      '.flowv-auto-toggle{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;cursor:pointer}',
+      '.flowv-auto-toggle:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l1)}',
+      '.flowv-auto-toggle:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4d6bfe);outline-offset:-2px}',
+      '.flowv-auto-toggle .n{font-weight:600;color:var(--dsw-alias-label-primary)}',
+      '.flowv-auto-list{max-height:220px;overflow:auto;overscroll-behavior:contain;margin:0;padding:0;list-style:none}',
+      '.flowv-auto-row{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:11.5px;cursor:pointer;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-auto-row:last-child{border-bottom:0}',
+      '.flowv-auto-row:hover{color:var(--dsw-alias-label-primary)}',
+      '.flowv-auto-row .id{font-family:var(--dsw-font-family,monospace);font-size:11px;color:var(--dsw-alias-label-tertiary);flex:0 0 auto}',
+      '.flowv-auto-row .ttl{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.flowv-auto-row .col{flex:0 0 auto;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-auto-row.is-bad .col,.flowv-auto-row.is-bad .ttl{color:var(--dsw-alias-state-error-primary)}',
       /* 横向滚动：列会被拉伸填满可用宽度，窄屏才滚动（比固定 190px 更容易读卡片）
          v1.21：align-items 从 flex-start 改 stretch——七列等高，空列不再是一条断掉的细条 */
       '.flowv-cols{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;align-items:stretch;scrollbar-gutter:stable}',
@@ -1451,6 +1465,12 @@ window.__ModuleLoader__.load({
         var draft = draftState[0]
         var setDraft = draftState[1]
 
+        // C-03：自动车道面板的展开态。必须和其他 hook 待在一起、在 early return 之前，
+        // 否则首屏 loading 与数据回来后的 hook 数量对不上 —— 整页白屏（同 drawerPresence 的坑）。
+        var autoLaneState = React.useState(false)
+        var autoLaneOpen = autoLaneState[0]
+        var setAutoLaneOpen = autoLaneState[1]
+
         var settingsState = React.useState({ tab: 'general', catalog: null, global: {}, loading: false })
         /**
          * 抽屉的进出场状态。
@@ -1963,6 +1983,7 @@ window.__ModuleLoader__.load({
         var MERGE_REASON = {
           'no-code-change': { label: '没有代码改动', fix: '无需处理：这张卡的交付物不是代码', tone: 'info' },
           'coordination-card': { label: '协调卡', fix: '无需处理：父卡只做汇总，改动在子卡里合并', tone: 'info' },
+          'superseded': { label: '已被父卡取代', fix: '无需处理：改动改由父分支统一发布', tone: 'info' },
           'no-worktree': { label: '没有检出', fix: '本身就按主工作区交付，无需处理', tone: 'info' },
           'not-a-repo': { label: '不是 Git 仓库', fix: '无需处理：改动直接落在工作区，没有分支可合', tone: 'warn' },
           'no-commits': { label: '缺基线提交', fix: '初始化仓库：在项目目录执行 `git add -A && git commit -m "baseline"`', tone: 'warn' },
@@ -1971,6 +1992,7 @@ window.__ModuleLoader__.load({
           'head-mismatch': { label: '验收后又提交了', fix: '重新验收一次（`git log --oneline -3` 确认当前提交）', tone: 'bad' },
           'out-of-scope-dirty': { label: '改到了范围外', fix: '把范围外的改动退回或另开一张卡，再重新派工', tone: 'bad' },
           'worktree-missing': { label: '检出不见了', fix: '重新派工会重建检出（`git worktree list` 先确认它真的没了）', tone: 'bad' },
+          'needs-rebase': { label: '分支落后基线', fix: '等调度回派工人做一次软合并，或手工 rebase 到基线', tone: 'warn' },
         }
         var MERGE_STATE_LABEL = { none: '不需要合并', pending: '等待合并', blocked: '合不了', ready: '可合并' }
 
@@ -2024,6 +2046,82 @@ window.__ModuleLoader__.load({
          * 没有 mergeState 的老数据仍显示原来那句"不走合并（原因）"—— 升级窗口里
          * 服务端可能还没重启，详情页不能因此少一项。
          */
+        // ---- 交付态（C-03 / rf-02 的展示侧）------------------------------------
+        //
+        // 与 lib/core.js 的 DELIVERY_STATE / deliveryState 同形。为什么内联：
+        // 和上面 mergeState 表同一个理由 —— 浏览器里拿不到 lib/*.js 的模块图。
+        // lib/panel.js 的 deliveryStateOf 是第二份镜像；两边都由
+        // test/panel-visibility.mjs 与 core 比对，漂移就红。
+        //
+        // 为什么要单独一套而不是看 column==='done'：done 有三条来路，只有
+        // phase==='merged' 真的把代码放进了 base。用列判断会把「有意不合并」
+        // 和「本来没有可合的东西」也算成交付（T-036/T-042 的假完成就是这么来的）。
+        var DELIVERY_STATE_LABEL = {
+          delivered: '已交付',
+          skipped: '有意未合并',
+          'no-merge': '无可合并内容',
+          'merged-into-parent': '已合入父分支',
+          'not-delivered': '未交付',
+        }
+        var deliveryStateOf = function (t) {
+          if (!t || t.column !== 'done') return 'not-delivered'
+          if (t.phase === 'merged') return 'delivered'
+          if (t.phase === 'merged-skipped') return 'skipped'
+          if (t.phase === 'done-no-merge') return 'no-merge'
+          if (t.phase === 'merged-into-parent') return 'merged-into-parent'
+          return 'not-delivered'
+        }
+        // 服务端投影带 deliveryState 时以它为准（老服务端还没重启时退回本地算）。
+        var deliveryOf = function (t) {
+          return (t && t.deliveryState) || deliveryStateOf(t)
+        }
+
+        /**
+         * 看板卡片上的交付徽标。
+         *
+         * delivered 不出标：正常的 done 不需要噪音（和 mergeState 的 none/ready 同理）。
+         * 另外三种都要出 —— 它们都是「列写着完成、代码没进 base」的假完成形态，
+         * 不出标就等于让看板替它撒谎。
+         */
+        var deliveryBadgeOf = function (t) {
+          var state = deliveryOf(t)
+          if (state === 'skipped') {
+            return { tone: 'warn', text: '未合并', title: '有意未合并：这张卡决定不合并（不是故障，但代码没进基线）' }
+          }
+          if (state === 'no-merge') {
+            return { tone: 'info', text: '无可合', title: '无可合并内容：这张卡本来就没有要合进基线的东西' }
+          }
+          if (state === 'merged-into-parent') {
+            return { tone: 'info', text: '已合入父分支', title: '已合入父分支：改动在父分支上统一发布，不单独进基线' }
+          }
+          return null
+        }
+
+        /**
+         * 详情页「交付」行：永远显示一行人话（详情页要解释，看板才要收窄）。
+         * 非 done 的卡显示「未交付 · 还在路上」—— 它不是缺陷，所以用淡色。
+         */
+        var deliveryKvRow = function (task) {
+          var state = deliveryOf(task)
+          var label = DELIVERY_STATE_LABEL[state] || state
+          if (state === 'delivered') {
+            return ['交付', h('span', { title: 'phase=merged：代码已进入基线分支' }, label)]
+          }
+          if (state === 'not-delivered') {
+            var hint = task && (task.column === 'done' ? '完成态但不是合并落点（没有进基线）' : '还在路上')
+            return ['交付', h('span', { style: { color: 'var(--dsw-alias-label-tertiary)' }, title: hint }, label + ' · ' + hint)]
+          }
+          if (state === 'skipped') {
+            return ['交付', h('div', null,
+              h('div', { style: { color: 'var(--dsw-alias-state-warn-primary)' } }, label),
+              h('div', { className: 'flowv-hint', style: { marginTop: 2 } }, '这张卡有意不合并（merge_skip）；要合得重新开卡或改 mergeState。'))]
+          }
+          if (state === 'no-merge') {
+            return ['交付', h('span', { title: '本来就没有可合进基线的东西' }, label)]
+          }
+          return ['交付', h('span', { title: '改动由父分支统一发布' }, label + ' · 改动在父分支上')]
+        }
+
         var mergeKvRow = function (task) {
           var state = task && task.mergeState
           if (!state) {
@@ -2055,6 +2153,10 @@ window.__ModuleLoader__.load({
           // pending 也给一个（"排队等合并"是会被问"怎么还没 done"的状态）；none / ready 不出。
           var mergeBadge = mergeBadgeOf(t)
           if (mergeBadge) sideBadges.push(h(Chip, { key: 'merge', tone: mergeBadge.tone, title: mergeBadge.title }, mergeBadge.text))
+          // C-03：交付态。done 的卡有四种落点，只有 phase=merged 真的进了基线；
+          // 另外三种不声不响地挂在「完成」列里，就是 T-036/T-042 那种假完成。
+          var deliveryBadge = deliveryBadgeOf(t)
+          if (deliveryBadge) sideBadges.push(h(Chip, { key: 'delivery', tone: deliveryBadge.tone, title: deliveryBadge.title }, deliveryBadge.text))
           if (t.risk && t.risk.level === 'high') sideBadges.push(h(Chip, { key: 'risk', tone: 'bad', title: (t.risk.reasons || []).join('；') }, '⚡高风险'))
           if (t.reopenRequested) sideBadges.push(h(Chip, { key: 'rrq', tone: 'warn', title: '申请重开：' + t.reopenRequested.reason }, '重开申请'))
           // v1.39：父卡的子任务进度（子卡本身不上看板，只在父卡详情里看和打开）
@@ -2944,6 +3046,7 @@ window.__ModuleLoader__.load({
                       d.pullRequest ? ['PR', (d.pullRequest.status || '') + ' · ' + (d.pullRequest.branch || '')] : null,
                       task.blocked ? ['阻塞', h('span', { style: { color: 'var(--dsw-alias-state-error-primary)' } }, task.blocked.reason || '—')] : null,
                       mergeKvRow(task),
+                      deliveryKvRow(task),
                       task.reopenRequested ? ['重开请求', (task.reopenRequested.by || 'agent') + '：' + (task.reopenRequested.reason || '')] : null,
                       task.inspection ? ['巡检', (task.inspection.verdict || '') + ((task.inspection.reasons || []).length ? ' · ' + (task.inspection.reasons || []).join('；') : '')] : null,
                       ['发起对话', task.originSessionId ? h('span', { className: 'flowv-mono' }, String(task.originSessionId).slice(0, 18)) : '—（非对话发起）'],
@@ -3613,6 +3716,70 @@ window.__ModuleLoader__.load({
             el.props.children[1].props && el.props.children[1].props.className === 'flowv-sec-empty'
         })
 
+        // ---- C-03：自动车道面板 -----------------------------------------------
+        //
+        // auto 卡不上看板（rf-04），但「隐藏」必须配一个「看得见」的出口：
+        // 否则降噪会变成失明 —— 人不再看板时，就不知道系统自动接管了什么、
+        // 哪一条卡住了。所以这里是一份**常驻的**台账：
+        //   标题永远在（空态写「没有自动卡」，整块消失会让人以为功能坏了）；
+        //   展开后是最近 20 条，blocked / 有未归档请示的置顶（服务端排好序）。
+        var renderAutoLane = function () {
+          var lane = v.autoLane || { count: 0, boardEscalated: 0, tasks: [] }
+          var list = Array.isArray(lane.tasks) ? lane.tasks : []
+          var n = Number(lane.count) || 0
+          var esc = Number(lane.boardEscalated) || 0
+          var rows = list.map(function (t) {
+            var isBad = !!t.blocked
+            var colTxt = COLUMN_TITLES[t.column] || t.column || ''
+            var tail = t.blocked && t.blocked.reason ? '⛔ ' + t.blocked.reason : (t.openInbox ? '📨' + t.openInbox : '')
+            return h('li', {
+              key: t.id,
+              className: 'flowv-auto-row' + (isBad ? ' is-bad' : ''),
+              title: (t.title || '') + (tail ? '\n' + tail : '') + '\n点这里打开详情',
+              onClick: function () { openDrawer(t.id) },
+            },
+              h('span', { className: 'id' }, t.id),
+              h('span', { className: 'ttl' }, t.title || '(未命名)'),
+              tail ? h('span', { className: 'col' }, tail) : null,
+              h('span', { className: 'col' }, colTxt),
+              // 拉上板：自动车道的卡人看上了就收回看板（唯一会写 visibility 的用户入口）。
+              // 不写「推下板」——往下推是系统的事，人在这里只做「我要盯着这张」。
+              h(Btn, {
+                small: true,
+                title: '拉回看板（这张卡我要自己盯着）',
+                onClick: function (e) {
+                  if (e) e.stopPropagation()
+                  act('task.visibility', { taskId: t.id, visibility: 'board' })
+                },
+              }, '拉上板'))
+          })
+          return h('div', { key: 'autolane', style: { marginTop: 12 } },
+            h('div', { className: 'flowv-auto-head' },
+              h('button', {
+                type: 'button',
+                className: 'flowv-auto-toggle',
+                'aria-expanded': autoLaneOpen ? 'true' : 'false',
+                onClick: function () { setAutoLaneOpen(function (prev) { return !prev }) },
+              },
+                (autoLaneOpen ? '▾ ' : '▸ ') + '自动车道',
+                h('span', { className: 'n' }, '(' + n + ')'),
+                !autoLaneOpen && n ? h('span', { className: 'n' }, '· 展开看') : null),
+              esc
+                ? h(Chip, { tone: 'warn', title: esc + ' 条自动卡卡住了或有请示在等人' }, '需人处理 ' + esc)
+                : null,
+              h('span', { className: 'flowv-hint' }, '这些卡被系统自动接管，不上看板；展开可见、可点开详情')),
+            autoLaneOpen
+              ? (rows.length
+                ? h('ul', { className: 'flowv-auto-list' }, rows)
+                : h('div', { className: 'flowv-sec-empty' }, '没有自动卡'))
+              : null,
+            // 折叠时也要能分清「没有自动卡」与「功能坏了」：这一句常驻。
+            !autoLaneOpen && !n ? h('div', { className: 'flowv-sec-empty' }, '没有自动卡') : null,
+            autoLaneOpen && n > list.length
+              ? h('div', { className: 'flowv-hint' }, '只列最近 ' + list.length + ' 条（共 ' + n + ' 条）；卡住和等回复的已置顶')
+              : null)
+        }
+
         var bodyEl = h('div', { className: 'flowv-body' },
           h('div', { className: 'flowv-top' },
             stats,
@@ -3624,6 +3791,8 @@ window.__ModuleLoader__.load({
             h('span', { className: 'flowv-board-title' }, '看板'),
             h('span', { className: 'flowv-hint' }, '点卡片打开详情；空列会收窄，把宽度让给有卡的列')),
           h('div', { className: 'flowv-cols' }, v.columns.map(columnEl)),
+          // 自动车道紧跟在看板下面：它是看板的补充（不上板的那批卡在这里），不是设置项。
+          renderAutoLane(),
           sectionsQuiet
             ? h('div', { className: 'flowv-quiet' }, '没有在跑的 run、租约、审批或事务事件——有活时这里会按列铺开')
             : h('div', { className: 'flowv-sections' }, secEls),

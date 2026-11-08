@@ -49,8 +49,11 @@ async function t(name, fn) {
 
 // ADR-0005 正文里列出的键。用数组而不是两段正则：迁移归类新增一个原因时，
 // 这张表必须有人**手工**来这里加一行，否则测试红 —— 那正是想要的摩擦。
-const ADR_NONE = ['no-code-change', 'coordination-card', 'no-worktree', 'not-a-repo']
-const ADR_BLOCKED = ['no-commits', 'base-missing', 'branch-busy', 'head-mismatch', 'out-of-scope-dirty', 'worktree-missing']
+const ADR_NONE = ['no-code-change', 'coordination-card', 'superseded', 'no-worktree', 'not-a-repo']
+// needs-rebase 也是 blocked：dispatch 的软合并 3 次仍落后时写的就是这个 reason。
+const ADR_BLOCKED = ['no-commits', 'needs-rebase', 'base-missing', 'branch-busy', 'head-mismatch', 'out-of-scope-dirty', 'worktree-missing']
+// 两个「环境问题」用黄：仓库缺基线、分支落后基线——都不是这张卡的代码出了故障。
+const ADR_WARN = ['no-commits', 'needs-rebase']
 
 // ---------- ① 表的键与形状 ----------
 
@@ -73,11 +76,11 @@ await t('每项都有 label / fix / tone / state，label ≤12 字', () => {
   }
 })
 
-await t('state 归类与 ADR 一致；no-commits 用 warn 其余 blocked 用 bad', () => {
+await t('state 归类与 ADR 一致；环境问题（无基线/落后基线）用 warn，其余 blocked 用 bad', () => {
   for (const key of ADR_NONE) assert.equal(MERGE_REASON[key].state, 'none', key + ' 应该是 none')
   for (const key of ADR_BLOCKED) assert.equal(MERGE_REASON[key].state, 'blocked', key + ' 应该是 blocked')
-  assert.equal(MERGE_REASON['no-commits'].tone, 'warn', '缺基线提交是环境问题，用黄不用红')
-  for (const key of ADR_BLOCKED.filter((k) => k !== 'no-commits')) {
+  for (const key of ADR_WARN) assert.equal(MERGE_REASON[key].tone, 'warn', key + ' 是环境问题，应该用黄不用红')
+  for (const key of ADR_BLOCKED.filter((k) => ADR_WARN.indexOf(k) < 0)) {
     assert.equal(MERGE_REASON[key].tone, 'bad', key + ' 是故障，应该用红')
   }
 })
