@@ -1042,6 +1042,115 @@ await t('冲突写进 PR 状态', () => {
 await t('冲突注入软合并包', () => assert.ok(domain.injectionsFor(gt2.id, { kind: 'context' }).length >= 1))
 await t('主仓库没有被污染', () => assert.equal(readFileSync(join(repo, 'README.md'), 'utf8').trim(), 'main 版本'))
 
+// ---- v0.002：合并落点搬到集成检出（I-02）+ 越界检查（I-05）-----------------
+{
+  const { integDirFor } = await import('../lib/integration.js')
+  const { join: j2 } = await import('node:path')
+  const logout = (args) => sh(repo, ['log', '--oneline'].concat(args || [])).trim().split('\n').filter(Boolean)
+
+  // ① 主检出停在别的分支、且有无关脏文件 —— 现状（repo-dirty / wrong-branch）必然拒，现在必须成功。
+  await domain.updateProjectConfig(gp.id, { postMergeCheck: { command: 'git rev-parse --show-toplevel', timeoutMs: 30000 } }, { role: 'human' })
+  const gt3 = await domain.createTask(gp.id, { title: '集成检出合并在别的分支上也能做', acceptance: ['x'] })
+  await domain.move(gt3.id, 'claim', { role: 'dispatcher' })
+  await domain.setPlan(gt3.id, '1. 加一行', { role: 'dispatcher' })
+  await domain.move(gt3.id, 'plan_ready', { role: 'dispatcher' })
+  await domain.move(gt3.id, 'approve', { role: 'human', id: 'me' })
+  const wt3 = domain.worktreeOf(gt3.id)
+  writeFileSync(join(wt3.path, 'README.md'), '# demo\n\nmain 版本\n\nworker 第三条\n')
+  await dispatcher.openPr(store.state.tasks[gt3.id])
+  // 人切到别的分支，并且留一个不相干的未提交文件
+  sh(repo, ['checkout', '-q', '-b', 'feature/human-work'])
+  writeFileSync(join(repo, 'human-note.txt'), '人正在写的东西\n')
+  await domain.move(gt3.id, 'stop', { role: 'worker', id: 'w' }, { stopReport: { summary: '加完', tests: 'node test/smoke.mjs', files: ['README.md'] } })
+  await domain.move(gt3.id, 'accept', { role: 'human', id: 'me' })
+  await domain.move(gt3.id, 'pr_open', { role: 'dispatcher', id: 'd1' })
+  const merged3 = await dispatcher.merge(store.state.tasks[gt3.id], { by: 'human' })
+  await t('v0.002 主检出在别的分支+有无关脏文件，合并仍然成功', () => {
+    assert.equal(merged3.ok, true, JSON.stringify(merged3))
+    assert.equal(store.state.tasks[gt3.id].column, 'done')
+  })
+  await t('v0.002 人的未提交文件没被合并碰掉', () => assert.equal(readFileSync(join(repo, 'human-note.txt'), 'utf8'), '人正在写的东西\n'))
+  await t('v0.002 主检出仍停在人的分支上（合并不再替人切分支）', () => {
+    assert.equal(sh(repo, ['rev-parse', '--abbrev-ref', 'HEAD']).trim(), 'feature/human-work')
+  })
+  await t('v0.002 base 的 ref 真的前进了（不靠主检出 HEAD）', () => {
+    const base = sh(repo, ['rev-parse', 'main']).trim()
+    const merged = logout(['main', '-3']).join(' ' )
+    assert.match(merged, /集成检出合并在别的分支上也能做|flow: merge/, 'base 上要有这次合并的提交：' + merged)
+    assert.equal(sh(repo, ['merge-base', '--is-ancestor', base, 'main']).trim(), '')
+  })
+  await t('v0.002 合并后冒烟在集成检出里跑（不是人的检出）', () => {
+    const check = store.state.tasks[gt3.id].mergeRequest.postMergeCheck
+    assert.ok(check, '要留下冒烟记录')
+    const shown = String(check.stdout || '').trim().replace(/\\/g, '/').toLowerCase()
+    const want = String(integDirFor(gp)).replace(/\\/g, '/').toLowerCase()
+    assert.ok(shown.endsWith('__integ__') || shown.includes('__integ__'), '冒烟的 cwd 必须是集成检出，实际 stdout=' + shown)
+    assert.equal(String(check.cwd || '').replace(/\\/g, '/').toLowerCase().includes('__integ__'), true, '记录里要写清在哪个目录跑的')
+    void want
+  })
+  await t('v0.002 集成检出留在磁盘上、进了 worktree list 且带锁', async () => {
+    const list = await (await import('../lib/git.js')).listWorktrees(repo)
+    const entry = list.find((w) => /__integ__$/.test(w.path.replace(/\\/g, '/')))
+    assert.ok(entry, '集成检出要在 worktree list 里')
+    assert.equal(entry.locked, true)
+  })
+
+  // ② 越界检查：设了 scope 的任务，脏文件落在范围内 → 拦下；范围外 → 不拦。
+  await domain.updateProjectConfig(gp.id, { postMergeCheck: null }, { role: 'human' })
+  const mkMergeReady = async (title, scopePaths) => {
+    const tk = await domain.createTask(gp.id, { title, acceptance: ['x'] })
+    await domain.move(tk.id, 'claim', { role: 'dispatcher' })
+    await domain.setPlan(tk.id, '1. x', { role: 'dispatcher' })
+    await domain.move(tk.id, 'plan_ready', { role: 'dispatcher' })
+    await domain.move(tk.id, 'approve', { role: 'human', id: 'me' })
+    const w = domain.worktreeOf(tk.id)
+    writeFileSync(join(w.path, 'OUT-OF-SCOPE-PROBE.md'), 'worker\n')
+    await dispatcher.openPr(store.state.tasks[tk.id])
+    await domain.move(tk.id, 'stop', { role: 'worker', id: 'w' }, { stopReport: { summary: 'ok', tests: 'x', files: ['OUT-OF-SCOPE-PROBE.md'] } })
+    await domain.move(tk.id, 'accept', { role: 'human', id: 'me' })
+    await domain.move(tk.id, 'pr_open', { role: 'dispatcher', id: 'd1' })
+    if (scopePaths) await domain.setScope(tk.id, { paths: scopePaths, symbols: [] }, { role: 'dispatcher', id: 'd1' })
+    return tk.id
+  }
+
+  const oosId = await mkMergeReady('越界检查：范围内的脏文件要拦下', ['README.md'])
+  writeFileSync(join(repo, 'README.md'), '# demo\n\nhuman 还没提交的改动\n')
+  const oosRes = await dispatcher.merge(store.state.tasks[oosId], { by: 'human' })
+  await t('v0.002 主检出里落在 scope 内的未提交改动拦下合并', () => {
+    assert.equal(oosRes.ok, false)
+    assert.equal(oosRes.outOfScope, true)
+    assert.deepEqual(oosRes.files, ['README.md'])
+    assert.equal(store.state.tasks[oosId].mergeState, 'blocked')
+    assert.equal(store.state.tasks[oosId].mergeReason, 'out-of-scope-dirty')
+  })
+  await t('v0.002 越界拦下时卡片没动、也没进合并', () => {
+    assert.equal(store.state.tasks[oosId].column, 'merging')
+    assert.match(store.state.tasks[oosId].noMergeReason || '', /README/)
+  })
+  sh(repo, ['checkout', '-q', '--', 'README.md'])
+  const oosOk = await dispatcher.merge(store.state.tasks[oosId], { by: 'human' })
+  await t('v0.002 脏文件清掉后同一张卡可以继续合', () => assert.equal(oosOk.ok, true, JSON.stringify(oosOk)))
+
+  const oos2 = await mkMergeReady('越界检查：范围外的脏文件不拦', ['README.md'])
+  writeFileSync(join(repo, 'unrelated-wip.txt'), '与这张卡无关\n')
+  const oos2Res = await dispatcher.merge(store.state.tasks[oos2], { by: 'human' })
+  await t('v0.002 范围外的脏文件不拦', () => assert.equal(oos2Res.ok, true, JSON.stringify(oos2Res)))
+
+  const oos3 = await mkMergeReady('越界检查：没设 scope 的任务不拦', null)
+  writeFileSync(join(repo, 'README.md'), '# demo\n\nhuman 又写了点东西\n')
+  const oos3Res = await dispatcher.merge(store.state.tasks[oos3], { by: 'human' })
+  await t('v0.002 没设阅读范围的任务不做越界检查（人的日常编辑不该被当越界）', () => assert.equal(oos3Res.ok, true, JSON.stringify(oos3Res)))
+
+  const oos4 = await mkMergeReady('越界检查：显式 override 放行', ['README.md'])
+  writeFileSync(join(repo, 'README.md'), '# demo\n\nhuman 的第三次改动\n')
+  const oos4Res = await dispatcher.merge(store.state.tasks[oos4], { by: 'human', overrideOutOfScope: true })
+  await t('v0.002 overrideOutOfScope: true 可以显式放行，并留下授权评论', async () => {
+    assert.equal(oos4Res.ok, true, JSON.stringify(oos4Res))
+    const comments = domain.taskDetail(oos4).comments.map((c) => c.content)
+    assert.ok(comments.some((c) => /显式放行/.test(c)), '要留一条"谁放的行"的记录')
+  })
+  sh(repo, ['checkout', '-q', '--', 'README.md'])
+}
 // ---- v1.16：身份名 = 车道 + 角色 + 序号 ------------------------------------
 {
   const { agentLabel } = domainMod

@@ -1,0 +1,430 @@
+  ✓ 建项目
+  ✓ 默认审核 prompt 集 6 条
+  ✓ 新任务在 todo
+  ✓ claim → planning
+  ✓ 没计划不能批准
+  ✓ plan_ready → waiting-approval
+  ✓ 工人不能批准
+  ✓ approve → running
+  ✓ 批准绑定 plan_rev
+  ✓ 无报告不能停
+  ✓ stop → verifying
+  ✓ 伪造的 head_sha 会被拒（线上用 audit-T035-verified 蒙混过关过）
+  ✓ accept → merging（要合并的项目）
+  ✓ 开 PR
+  ✓ 审核 prompt 含版本与清单
+  ✓ review_approve → done
+  ✓ 审核结论带 prompt_version
+  ✓ 批准落一条 plan 审批记录
+  ✓ 方案一改旧批准失效
+  ✓ 审批吊销有事件
+  ✓ 验收落一条 head 审批记录
+  ✓ 旧版本命令被拒绝
+  ✓ 重开必须写原因
+  ✓ reopen → todo 且保留审计
+  ✓ 调度员不能重开（只有人类可以）
+  ✓ 重开后不能重复重开
+  ✓ 同仓库第二个合并事务被拒
+  ✓ 释放后可以再拿锁
+  ✓ 批准后派工占住任务租约
+  ✓ 取消收 run 并释放租约
+  ✓ 人类追问把待批打回讨论
+  ✓ 阻塞保留原列
+  ✓ 阻塞时不能迁移
+  ✓ 解除阻塞
+  ✓ 风险 → 阻塞并保留 merging
+  ✓ 风险原因落库
+  ✓ 新项目自动补齐代理池（1 调度 + 2 工人）
+  ✓ 补齐幂等：再跑一次不新增
+  ✓ 派工建 run 并绑工人
+  ✓ 派工占任务租约
+  ✓ 投递案卷到真实会话
+  ✓ v1.39 派工不再建 goal，改为清残留 goal
+  ✓ 工位变 active
+  ✓ 第二个任务派给另一个工人
+  ✓ 没有空闲工位 → 保持执行中等工位
+  ✓ 停止收 run
+  ✓ 停止释放工位
+  ✓ 停止释放租约
+  ✓ v1.39 停止后按事件信封通知调度（worker.stopped）
+  ✓ 有空位后重新派工成功
+  ✓ 聊天帧覆盖用户/工具/助手/状态
+  ✓ 帧序号单调
+  ✓ 未知事件不产帧
+  ✓ 每个工具的 output.render 返回 ContentBlock[]
+  ✓ 评论署名跟着会话角色走（工人/调度员/未知）
+  ✓ 任务详情页一次取全（任务 + 评论 + 运行 + 事件）
+  ✓ 系统投递的帧带 origin
+  ✓ 拿到租约
+  ✓ 别人拿不到
+  ✓ 同 owner 可重入
+  ✓ fencing 校验通过
+  ✓ 释放后可被抢
+  ✓ outbox 投递
+  ✓ GET /app 已下线（404）
+  ✓ GET /state 返回快照
+  ✓ POST /action 建任务
+  ✓ 非法动作返回错误
+  ✓ POST /action chat.send 投到调度员会话
+  ✓ GET /chat/stream 首帧是 meta
+  ✓ 前端注册为会话视图（不再有独立页面）
+  ✓ 会话视图自带看板与任务抽屉（看板功能已迁入）
+  ✓ 会话视图自带项目与角色配置（设置已迁入）
+  ✓ v1.4：界面不再暴露删除动作（项目跟随工作区）
+  ✓ 旧 preset 失效 → 重置会话后重投成功
+  ✓ 自愈后任务不再被阻塞
+  ✓ 工作区还在的项目不动
+  ✓ 工作区已删 → 项目与其任务一起清掉
+  ✓ registry 不可用时不误删
+  ✓ 案卷里的工作目录用正斜杠
+  ✓ 案卷里带"路径用正斜杠"的提示（防非法转义）
+  ✓ 案卷列出确切的工具名，并点明不存在简写
+  ✓ 工作区行也用正斜杠
+  ✓ 建项目时把默认模型冻结到项目上
+  ✓ 新造的工位直接带模型（不留 null）
+  ✓ 总调度不参与模型配置（chief 保持 null，由 DSH 自己管）
+  ✓ 换个"全局默认"再补齐工位：已有工位不受影响
+  ✓ 老项目里 provider 为空的工位会被项目默认补上（只补空值）
+  ✓ 无 Git 的项目：验收后直接进 done，不进合并列
+  ✓ 没有 noMerge 标记时 accept 仍然去 merging（状态机语义没被改坏）
+  ✓ 已经卡在 merging 的卡可以用 merge_skip 收尾
+  ✓ 已有审核结论的卡不能用 merge_skip 绕过审核
+  ✓ 代理可以给已完成的卡挂一条重开申请（并留下事件）
+  ✓ 申请重开不改变列：真正的 reopen 仍然只有人类能做
+  ✓ 重开申请必须写理由，并且只能针对终态的卡
+  ✓ 人真的重开之后，申请标记要清掉（否则看板一直挂着）
+  ✓ 看板视图把重开申请与 noMerge 一并暴露给界面
+  ✓ flow_reopen_request 工具已注册（名字要对得上，模型才不会 TypeError）
+  ✓ 巡检后 discussion 里能看到结论与原因
+  ✓ 巡检结论同时写进 task.inspection（结构数据仍在）
+  ✓ 巡检评论不会误触发「人类评论吊销审批」
+  ✓ 心跳会续 lastHeartbeat
+  ✓ 心跳续过之后不会被判 stuck
+  ✓ 超过阈值且没续心跳 → 会被判 stuck（检测本身还有效）
+  ✓ run 结束后心跳不再续（返回 ok:false）
+  ✓ dispatcher 起/停心跳幂等且不抛
+  ✓ 重新加载一致
+  ✓ 配置调大 → 自动补一个工位
+  ✓ 配置调小不删已有工位
+  ✓ 首次落库：默认工位一次备齐（含 griller）
+  ✓ 已存在项目再次打开：不复活被删的工位
+  ✓ 改非工位数配置：也不复活工位
+  ✓ 显式 ensureAgents：把删掉的工位补回来
+  ✓ 默认补一个总调度者
+  ✓ 对话框默认发给总调度者
+  ✓ handoff 绑定 plan_rev
+  ✓ 注入技能记录字节数
+  ✓ 按 kind 取注入
+  ✓ recordIssues 默认关闭（纯本地看板模式）
+  ✓ recordIssues 关闭时同步远程 issue 被跳过
+  ✓ recordIssues 关闭时不补 issue 车道工位
+  ✓ 派工建出 worktree
+  ✓ worktree 分支是 flow/<taskId>
+  ✓ 会话 cwd 落在项目工作区（不再跟着 worktree 走）
+  ✓ openPr 生成 PR 记录
+  ✓ 同一 head 不重复开 PR
+  ✓ v1.35 没审核结论时代理合并被拒，且没动 git
+  ✓ 合并成功
+  ✓ 合并后 README 有工人那行
+  ✓ 合并后任务到 done
+  ✓ 合并后 worktree 摘除
+  ✓ v1.35 合并成功后合并意图已清、结论来自人工点击
+  ✓ 合并冲突被识别
+  ✓ 冲突任务回到执行中
+  ✓ 冲突写进 PR 状态
+  ✓ 冲突注入软合并包
+  ✓ 主仓库没有被污染
+  ✓ v0.002 主检出在别的分支+有无关脏文件，合并仍然成功
+  ✓ v0.002 人的未提交文件没被合并碰掉
+  ✓ v0.002 主检出仍停在人的分支上（合并不再替人切分支）
+  ✓ v0.002 base 的 ref 真的前进了（不靠主检出 HEAD）
+  ✓ v0.002 合并后冒烟在集成检出里跑（不是人的检出）
+  ✓ v0.002 集成检出留在磁盘上、进了 worktree list 且带锁
+  ✓ v0.002 主检出里落在 scope 内的未提交改动拦下合并
+  ✓ v0.002 越界拦下时卡片没动、也没进合并
+  ✓ v0.002 脏文件清掉后同一张卡可以继续合
+  ✓ v0.002 范围外的脏文件不拦
+  ✓ v0.002 没设阅读范围的任务不做越界检查（人的日常编辑不该被当越界）
+  ✓ v0.002 overrideOutOfScope: true 可以显式放行，并留下授权评论
+  ✓ 工位身份名是 human调度1 / human工人1 / auto调度1 这种
+  ✓ 总调度者保留自己的名字（那是用户自己的聊天框）
+  ✓ 基础分支默认留空 = 自动探测（写死 main 会把 master 仓库带偏）
+  ✓ 新项目的 baseBranch 是空的，等 defaultBranch 去探
+  ✓ setSessionTitle 把身份名写进会话记录并发事件
+  ✓ buildProjectView 暴露 identity label 与会话信息
+  ✓ 零提交仓库派工：不建 worktree，但把原因说清楚
+  ✓ 补上基线提交之后，下一次派工重新拿到 worktree 与合并流程
+  ✓ 上一轮被标了 noMerge 的卡，这一轮拿到 worktree 要把标记撤掉
+  ✓ 事件入站成功
+  ✓ 同 dedupeKey 去重
+  ✓ 同步落镜像
+  ✓ 同步落游标
+  ✓ 同 rev 不重复写
+  ✓ webhook 验签失败 401
+  ✓ webhook 验签通过 202
+  ✓ 重复 webhook 202 duplicate
+  ✓ listIssues 显式排序 + 游标取最新一条（不是末行）
+  ✓ listPulls 不把 since 当过滤条件也能取到最新游标
+  ✓ 同步的事件 payload 带 issue 正文与链接
+  ✓ event.js 把 payload.body/url 拼进卡片 note（原来只剩「（来自 github #N）」）
+  ✓ pull 事件的 payload 带 merged/branch，远程合并回写才不是死代码
+  ✓ sync.js：marker 生成/识别/剥离
+  ✓ sync.js：scrubOutbound 擦 token 与本地绝对路径
+  ✓ sync.js：受管标签只认四个 scope
+  ✓ sync.js：diffLabels 只删受管且不在期望里的
+  ✓ sync.js：desiredLabels 把列/车道/优先级/阻塞翻成标签
+  ✓ sync.js：assessPlanRisk 命中硬规则就判 high
+  ✓ sync.js：canAutoApprove 三道闸门缺一不可
+  ✓ listComments 游标取最新一条（不是末行）
+  ✓ createComment / patchIssue / addIssueLabel 走对方法与端点
+  ✓ 出站：本地新建的卡推成远程 issue
+  ✓ 出站：body 带 marker 且已擦掉本地路径
+  ✓ 出站结果落盘：task.remote 记下 issue 号与标签
+  ✓ 出站幂等：已推过的卡不再建第二个 issue
+  ✓ 入站：marker 命中的评论被跳过（回声抑制）
+  ✓ 入站：评论落到对应卡上并带 remote 身份
+  ✓ 入站幂等：同一条评论不会落两次
+  ✓ syncCandidates：60s 内不重复排期，熔断期直接跳过
+  ✓ armProjectSync 只写一次 since（配置改动不重置分界）
+  ✓ 入站：带 marker 的回流 issue 不写镜像、不投事件
+  ✓ startRun 打 fencing 序号：每派一次工自增
+  ✓ endRun 带旧 runId 时被拒（迟到收尾不抹新 run）
+  ✓ endRun 带对 runId 时正常收尾并释放租约
+  ✓ zombieRuns 只认「activeRunId 已换人」的行
+  ✓ recoverRuns 把重启前的 running 全部降为 interrupted 并清 activeRunId
+  ✓ 两套预算分开计数：infra 3 次带退避、content 只 1 次
+  ✓ retryDue 只捡到点且没有在跑的 run
+  ✓ refreshPulls 回读 PR 事实（合并/冲突）且不驱动状态机
+  ✓ 唤醒去重：6 小时内同一事实只叫一次
+  ✓ overrunRuns 按 3 小时硬上限挑出超时 run
+  ✓ GET /health 有计数
+  ✓ GET /events 返回事件
+  ✓ GET /overview 返回 totals 与 projects
+  ✓ /overview 每个项目带两条车道
+  ✓ /overview 事件流有文本
+  ✓ /overview events 参数生效
+  ✓ GET /events 返回事件
+  ✓ tick 消费事件
+  ✓ remote 没有 enabled 字段也要尝试同步（否则 issue 永远进不来）
+  ✓ tick 收掉卡死 run
+  ✓ 卡死后任务被阻塞
+  ✓ tick 补位派工
+  ✓ GET /sessions 列出 DSH 会话
+  ✓ agent.bindSession 把总调度接到已有会话
+  ✓ chat.send 的 / 开头消息走命令通道
+  ✓ chat.send 的普通消息仍走 prompt
+  ✓ 会话事件里的命令帧能渲染
+  ✓ 老项目补回 v0.3 默认配置
+  ✓ 老项目补回总调度者
+  ✓ v1 数据文件能迁到当前版本
+  ✓ 迁移补齐 v0.3 的表
+  ✓ 迁移结果已落盘（不是每次重放）
+  ✓ 车道默认：human 1 调度 2 工人，issue 0 工位
+  ✓ dispatcher 挂在 chief 下
+  ✓ worker 挂在 dispatcher 下
+  ✓ 代理默认带 lane
+  ✓ reparent 拒绝跨项目
+  ✓ reparent 改派到另一个调度员
+  ✓ issue 车道懒补齐工位（需要先打开 recordIssues）
+  ✓ issue 车道补齐幂等
+  ✓ setScope 归一化路径分隔符
+  ✓ setScope 推进版本
+  ✓ 巡检结论落库
+  ✓ 巡检结论拒绝非法值
+  ✓ 车道隔离：issue 任务不能派给 human 工人
+  ✓ pickWorkerScored 按车道过滤
+  ✓ 同域命中：两个同 scope 任务落到同一工人
+  ✓ 无 scope 任务仍能选出工人
+  ✓ 跨车道打分返回 Infinity（被过滤为 null）
+  ✓ 派工写回 dispatchReason
+  ✓ 热点保护：连续 3 次后强制轮转
+  ✓ /flow 命令解析
+  ✓ 进入模式收回写工具
+  ✓ 重复进入不重复 restrict
+  ✓ 视图里本来就没有写工具：进入，并说明只读天然成立
+  ✓ 视图里有写工具但收不回来：拒绝进入（不能假装只读）
+  ✓ 退出模式恢复工具集
+  ✓ 没有 agent scoped context 时拒绝进入（不退化成全局限制）
+  ✓ 缺少 tools.restrict 时拒绝进入（不半开）
+  ✓ restrict 抛错时拒绝进入
+  ✓ Host 报错列出合法工具名时，用交集重试一次
+  ✓ 本次构建没有的工具名不会进 deny（线上报错的那个场景）
+  ✓ 发布校验：缺标题/缺 plan 被拒
+  ✓ 发布校验：子任务必须带标题
+  ✓ flow_publish 工具已注册
+  ✓ flow_publish 返回 taskId
+  ✓ 发布的任务带 plan rev1
+  ✓ 发布的任务带子任务与阅读范围
+  ✓ 发布即开工：进 running/executing
+  ✓ 发布后尝试派工（成功则占 run+租约，失败要有说明）
+  ✓ flow_publish 缺参被拒
+  ✓ issue 入站建卡成功
+  ✓ issue 卡落在 issue 车道
+  ✓ issue 卡带幂等键格式（身份不含 action/rev）
+  ✓ issue 入站懒补齐 issue 车道工位
+  ✓ 重复投递不建第二张卡
+  ✓ 同一条 issue 的新 rev 不建新卡（幂等）
+  ✓ originRef 只拼来源身份
+  ✓ findTaskByOriginRef 能命中（且兼容老键）
+  ✓ action lane.get 返回两条车道
+  ✓ action lane.set 补齐 issue 车道
+  ✓ action agent.reparent 改派
+  ✓ action scope.set 写阅读范围
+  ✓ v1.37 action project.metrics 返回任务/会话/Inbox/消息四组指标
+  ✓ v1.37.3 inbox.reply：from=system:* 的工单被人回复后要叫醒调度
+  ✓ v1.37 action settings.get 返回全局默认模型设置
+  ✓ action task.inspect.write 落巡检
+  ✓ action task.reassign 同列改派
+  ✓ 默认没有绑定主调度会话
+  ✓ 绑定后 chiefSessionOf 返回该会话
+  ✓ chatTarget 优先返回已绑定会话的 chief
+  ✓ 同一会话不能同时当两个项目的主调度
+  ✓ overview 带 chiefSessionId
+  ✓ overview 带 taskPreview
+  ✓ overview 事件流不含水位噪声
+  ✓ action chief.get 返回绑定会话
+  ✓ buildProjectView 返回项目与列
+  ✓ buildProjectView 按列分组任务
+  ✓ 任务卡带事务字段（version/plan/blocked）
+  ✓ buildProjectView 暴露车道与租约
+  ✓ buildProjectView 事件流不含水位噪声
+  ✓ 未知项目返回 ok:false
+  ✓ 解绑后 chiefSessionOf 为空
+  ✓ 解绑把 chief-chat 记录归档
+  ✓ 同一 issue 的第二个 revision 不建第二张卡
+  ✓ 入站建卡把远程身份写进 task.remote（否则出站会重推）
+  ✓ 带 flow marker 的回流 issue 不建卡
+  ✓ 入站卡不会被出站重复推送
+  ✓ repairInboundIdentities 把 remote 改回来源 issue
+  ✓ v1.24 迁移到当前 schemaVersion 且带 control
+  ✓ 未停止时 halted() 为 false
+  ✓ issue 与 human 各有自己的调度员
+  ✓ notifyDispatcher 按车道路由（issue 卡不发给人类调度）
+  ✓ heartbeat 对已消失的 run 返回 missing 而不是抛错
+  ✓ haltAll 把在跑的 run 收成 interrupted 并清 activeRunId
+  ✓ 停止期间 dispatch 直接跳过，不建任何 run
+  ✓ 停止期间 tick 整轮不跑
+  ✓ 停止期间 notifyDispatcher 不发通知
+  ✓ 停止期间会话事件不被接收
+  ✓ resumeAll 清掉控制位（且不动任何卡）
+  ✓ 会话报错把 run 收成 failed 并记 infra 预算
+  ✓ 用户停止生成只收成 interrupted，不自动重派也不记失败
+  ✓ v1.39 completed 但没汇报 → 包装成 turn-ended-silent 事件发给调度，run 不结束
+  ✓ 长评论按原文存储，不再被截断到 4000
+  ✓ flow_task_detail 只给评论索引（不塞全文，也不砍成 200 字）
+  ✓ flow_task_comment_read 分段读能读到全文（含最后一节）
+  ✓ flow_task_comment_read 的 limit 有上限（不会一段灌爆上下文）
+  ✓ 读一条不存在的评论要明确失败
+  ✓ plan 用 plan:<taskId> 分段读得到全文
+  ✓ flow_task_detail 会输出计划正文（以前只有 rev 号）
+  ✓ 调度员能用 flow_task_plan 写计划（以前根本没有这个工具）
+  ✓ 调度员写计划后能推进到待批准（plan_ready）
+  ✓ 调度员能批准 human 车道的低风险方案（approve_by_dispatcher）
+  ✓ 高风险方案调度代批会被拒（人行闸门不放宽）
+  ✓ 工人不能代批（代批是调度/主调度的事）
+  ✓ 出站请求必须带 Authorization（匿名会被 GitHub 403 限流）
+  ✓ 评论推送成功后要回写 remote（否则下一轮又推一次）
+  ✓ 推送被 403 拒绝时必须记进 errors（不能静默吞掉）
+  ✓ 卡进 done 时要把对应 issue 关掉（patchIssue 以前从未被调用过）
+  ✓ 阻塞状态要能落成 blocked 标签（desiredLabels 已支持，需确认整链通）
+  ✓ accept 允许 dispatcher 执行（人授权后代理可代收口）
+  ✓ accept 必须留下人类授权凭据（不能凭空代收）
+  ✓ headSha 不再是人工必填项（无变更的卡也能验收）
+  ✓ headSha 若是乱填的字符串，要能识别出来并拒绝
+  ✓ 存在 detectPostAcceptDrift 能力（T-035 验收后又被改的收口问题）
+  ✓ 新评论 id 不再是 c_00NNN 格式，且连续三条互不相同
+  ✓ 旧格式评论 id（c_00082）仍然可读（不迁移也兼容）
+  ✓ 工人案卷含内置规则（junction 只读、head_sha 不手填、读到 hasMore=false）
+  ✓ 调度巡检包含内置职责边界（head_sha 不手填、没跑测试要写未执行）
+  ✓ linkSharedDirs：目标存在才链，不存在静默跳过
+  ✓ 配置默认值里有 issueCloseEnabled=true（开关要能在界面看到）
+  ✓ 没有 PR 快照时，报错要指向可执行的下一条路（不是干巴巴一句）
+  ✓ 跳过合并能把无 PR 的卡收口（不再卡在 merging）
+  ✓ 有 PR 快照之后审核通过能正常收口
+  ✓ todo 的卡会被自动 claim 进 planning（不再等人连调工具）
+  ✓ planning 有计划但没提交 → 自动 plan_ready
+  ✓ waiting-approval 且非高风险 → 自动代批开工（human 车道也走同一条）
+  ✓ high 风险的卡不会被自动批，而是落到请示箱等人
+  ✓ canAutoApprove 只拦 high（medium 放行，才可能自动循环）
+  ✓ 推进被守卫拒绝时不会每拍重试（记 advanceBlocked 并停车）
+  ✓ flow_ask_human 的四段结构进请示箱，卡上留指针评论
+  ✓ 缺四段的关键项会拒绝（不许只发一句我遇到问题了）
+  ✓ info 类型只需 topic（纯知情项不强制四段）
+  ✓ 人多轮回复后状态变 answered，日志留痕
+  ✓ 调度归档后阻塞标记被清掉，卡能继续推进
+  ✓ 有 open 请示时不抢跑推进（等人拍板）
+  ✓ autoAccept 用 dispatcher 身份 + 系统凭据（不再假冒 human）
+  ✓ 证据写「未执行」时不自动收，转请示箱等人决定
+  ✓ 没有真正合并过，review_approve 必须被拒绝（不能把审核当成合并）
+  ✓ 真的合并之后（有 mergedCommit）才允许 review_approve
+  ✓ merge_skip 是显式跳过，仍然允许（但要能看出跳过了）
+  ✓ worktree 有未提交改动时，accept 必须拒绝（验收不严的根因）
+  ✓ worktree 里留了未提交文件时，验收必须被拒并列出文件
+  ✓ 人确认这些改动不要了，可以带 allowDirty 放过
+  ✓ 工人提示词强约束「必须提交」并把自查写清
+  ✓ 调度提示词强约束「审核通过 ≠ 已合并」
+  ✓ 修复必须说明原因（留审计）
+  ✓ 只修「phase=merged 但没有提交」的卡，正常的卡不能被动
+  ✓ 没有 git 事实时退回 merging（保守分支），不清空 worktree 记录
+  ✓ 分支已全部合入时，改为补记 mergedCommit（不能退回重复合并）
+  ✓ 分支已全部合入时，mergeBranch 要标记 alreadyMerged 并返回分支自己的头
+  ✓ 连续 5 条通知合并成 1 条（不再一条一次打断）
+  ✓ maxWait 兜底：消息持续不断也会强制发出（防饿死）
+  ✓ 紧急通知立即发，不等合并窗口
+  ✓ 紧急消息不会吞掉已排队的普通通知
+  ✓ 附注（noteOnly）不单独触发投递，但要能搭车
+  ✓ 人单独留一条评论，必须投给调度员（不能被 noteOnly 规则吞掉）
+  ✓ 不同调度员的队列互不干扰
+  ✓ 超长时保留最新的、丢掉最早的（并说清涉及哪些卡）
+  ✓ 工人被明确禁止用 ask_user_question，并给了正确走法
+  ✓ 调度员被禁止用 ask_user_question，改走 flow_ask_human
+  ✓ 两条通道的归属写清楚了（工人→调度，调度→人）
+  ✓ 工人 brief 的第一段就是最高优先级约束
+  ✓ 调度巡检包的第一段就是最高优先级约束
+  ✓ 最高优先级段用的是硬措辞，不是建议/尽量
+  ✓ v1.35 自己写的 human:web 不再是验收凭据
+  ✓ v1.35 人的否定回复不能当验收授权
+  ✓ v1.35 别的卡的请示单不能拿来用
+  ✓ v1.35 system:* 凭据只有调度器自身能用
+  ✓ v1.35 有效凭据落进审批记录（能查到是哪条请示、谁回复的）
+  ✓ v1.35 flow_publish 不冒充人、只派一次工
+  ✓ v1.35 审核 approved 只记结论、卡留在 merging（不再被 review_approve 守卫回滚）
+  ✓ v1.35 命中 block 级判据却给 approved → 改判 risk
+  ✓ v1.35 startRun 在事务内拒绝第二条活跃 run（I2）
+  ✓ v1.35 副作用抛错不再被吞：意图落 failed + 下次重试时间
+  ✓ v1.35 到点后 tick 能把失败的副作用补跑成功
+  ✓ v1.35 副作用里产生的事件带 causationId 指回触发它的迁移（I7）
+  ✓ v1.35 卡已被后续迁移推走时，旧派工意图作废（不在已取消的卡上派工）
+  ✓ v1.35 recoverRuns 把执行到一半的副作用转入立即重试
+  ✓ v1.35 合并没落地的中断意图会被清掉（之后重新排队合并）
+  ✓ v1.35 合并已落地但没记账的卡，对账补记为已合并
+  ✓ v1.35 看板「审核通过」= 人审过并真合并（git 仓库里走完到 done/merged）
+  ✓ v1.35 没有 PR 记录时人点合并不留下 approved 结论
+  ✓ v1.35 远程 PR 等评审能被推导出来（REST 没有 reviewDecision）
+  ✓ v1.35 主工作区检出的不是 base 时拒绝合并（不合进错误分支）
+  ✓ v1.36 worktree GC：终态任务的 worktree 被回收，脏的先隔离不删
+  ✓ v1.36 模型冷却：冷却期内不派工，冷却过期后恢复
+  ✓ v1.36 排队过期：等待超过上限的卡不再自动重派
+  ✓ v1.36 卡死计数：默认不自动重建，达到阈值标 poisoned 但不清零
+  ✓ v1.36 开启 poisonRebuild 后达阈值自动重建并清零
+  ✓ v1.37 sanitizeLossless：undefined/NaN/-0/Date/大整数/孤立代理都被收敛
+  ✓ v1.37 logMessage 不把 undefined 写进状态
+  ✓ v1.36 resetGuard：guarded 下工人近期有评论则拒绝，静默期过后放行
+  ✓ v1.37 setProgress：写入、旧值进历史、steer 清零、发事件
+  ✓ v1.37 卡片投影带 progress / 验收进度 / 未处理请示数
+  ✓ v1.37 autoAccept：acceptanceStatus 有 not-run 时不自动收
+  ✓ v1.37 askHuman 去重：同卡同类同发起人已有未归档工单时返回 duplicate
+  ✓ v1.37 Inbox 工单：追问进同一对话线、info 可标已读、归档拒绝追问
+  ✓ v1.37 schema 9→10 迁移：重复请示只保留最早一条，回复合并
+  ✓ v1.37.1 steer 计数 async 生效：工具层真的 await 了 bumpSteer
+  ✓ v1.37.1 resetGuard：先 interrupt 再 reset 也要被拦（activeRunId 已空）
+  ✓ v1.37.1 probeBudget：超窗口次数拒绝，窗口过期重置
+  ✓ v1.37 steer 计数：超过上限拒绝，clearSteer 后重置
+  ✓ v1.36 巡检信号：连续两轮无产出 → steer，同错误码三次 → pause，预算耗尽 → block
+  ✓ v1.36 巡检信号落历史：noteInspectionCycle 记最近 12 轮并给出结论
+  ✓ v1.36 rebase 策略：把任务分支 rebase 到 base 再 ff（方向不再反过来）
+  ✓ v1.36 磁盘余量不足时拒绝派工并说清原因
+  ✓ v1.36 合并后冒烟：配置了就跑，失败会阻塞卡片并留下输出
+  ✓ v1.35 autoMerge 项目有 block 级判据时请调度审核，而不是系统代写 approved
+
+428 checks passed · data C:\Users\ADMINI~1\AppData\Local\Temp\dsh-flow-iLl5kT\flow.json
