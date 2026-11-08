@@ -1,37 +1,16 @@
-I-09..I-12：检出锁、对账两时点、依赖各装各的、mergeState 读侧
+fix(reconcile): 登记表按项目过滤 —— 否则对账会搬走别的项目的检出
 
-I-09 检出锁定（ADR-0006 §5）
-- dispatch 在 startRun 之后给检出发 git lock（reason = 「flow <taskId> running」）；
-- syncWorktreeLocks：porcelain 里 locked 且原因匹配、且该卡没有 activeRunId → unlock；
-  挂在 afterStop / afterCancel / gcWorktrees / reconcileWorktrees 四处，幂等。
-  为什么不挂在 turn 事件上：进程被杀、会话超时、人工撤销都走不到 unlock，
-  残留锁会让 gc **永远**跳过那个检出（lock 是唯一挡住 prune 的机制）。
-- removeWorktree 对「自己的 run 锁」自愈（字符串相等）：合并路径不经 afterStop，
-  不解锁就是死结。外部原因的锁照旧拒绝。
+线上验收时四个项目**每个**都报出同一条 orphan-dir：.flow-worktrees/BiliNote/T-048。
+根因：store.state.worktrees 是所有项目共一个对象，reconcile 只对账一个项目却没过滤登记表。
 
-I-10 四时点对账（ADR-0006 §2）
-- reconcileWorktrees({dryRun, graceMs, now})：ghost/stale-record → drop + 评论；
-  orphan-dir 过了 10 分钟 grace 才动（空目录删、非空归档到 .quarantine/orphan-*）；
-  branch-busy 只报告；external 不动。
-- 启动重活（index.js，后台不阻塞就绪）vs tick 只读（scheduler 6h 节流写 maintenance.worktreeDrift）。
-  为什么 tick 不许动手：15 秒一次，判错一次就删掉正在干活的现场。
-- lib/reconcile.js 两处修正：git 有而目录无 = ghost（不是 in-sync）；
-  normalizeKey 对已消失目录改走 realpath(dirname)+basename（否则长名/8.3 短名拆成两个键）。
+为什么是数据丢失级：orphan-dir 在启动重活里过了 grace 会被 rename 进 .quarantine ——
+即「对账 ework 时把 BiliNote 正在用的检出搬走」，工人目录当场消失、合并随后报 worktree-missing。
+单项目测试永远暴露不出来。
 
-I-11 依赖各装各的（ADR-0003）
-- DEFAULT_SHARED_DIRS 四个默认目录 → 空；sharedDirs 变纯 opt-in。
-  理由：链接制造假绿（主仓 .venv 166 包含 pytest，requirements.txt 128 行无 pytest）。
-- 新增 setup / install 两个配置（{commands, timeoutMs}），建出新检出后按序跑，
-  失败 → blocked/install-failed + 评论，**不降级**到主检出（没依赖的检出等于没法开工）。
-- 案卷补一句：检出里只有版本库的文件，gitignored 数据不在里面。
+两条判据一起用（lib/reconcile.js）：
+1. rec.projectId !== project.id → 跳过（新数据都有 projectId）；
+2. 路径不在 worktreeRootOf(project) + '/' 下 → 跳过（老数据没有 projectId，路径不会骗人）。
 
-I-12 mergeState 读侧与界面（ADR-0005）
-- 新建 lib/merge-state.js（MERGE_REASON / MERGE_STATE_LABEL / mergeReasonOf），不 import 项目文件；
-- needsMerge 切三态（pending|ready 进合并列，none|blocked 直接 done），缺 mergeState 回退旧判据；
-- client.js 内联同形状副本（bundle 无模块图，加 import 会让视图静默消失），测试逐键比对防漂移；
-- lib/panel.js 的 taskCard 补投影 mergeState/mergeReason —— 缺这行 chip 永不显形（白名单投影，不报错）；
-- inferMergeState 补 /非 git/i（派工路径写的是「非 Git 工作区」）。
-
-测试：npm test EXIT=0（smoke 442 / integration 14 / reconcile 12 / worktree intent 12 /
-worktree reclaim 14 / reconcile tick 10 / merge-state 14）。
-票面记录见 .wayfinder/impl/I-09..I-12.md（含与票面不一致处的理由）。
+回归：test/reconcile-tick.mjs +2 checks（12）。
+线上实测：ework external 1、wb反代 0、BiliNote in-sync 1 / external 4 / orphan-dir 2、dsh-flow 0；
+ghost 0 / stale-record 0 / branch-busy 0 —— v0.002 验收的「无幽灵」成立。

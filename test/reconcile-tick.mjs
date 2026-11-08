@@ -151,6 +151,36 @@ await t('没有活跃 run：残留锁由对账解开（并记进 actions）', ()
   assert.ok(!e || !e.locked, '锁应该被解开')
 })
 
+// ---------- ④b 全局登记表不许串项目（真机踩到的数据丢失级 bug）----------
+
+// store.state.worktrees 是**所有项目共一个对象**，而 reconcile 只对账一个项目。
+// 不过滤的后果在真机复现过：跑 ework 的对账时，BiliNote 的 T-048 被报成 orphan-dir；
+// 而 orphan-dir 在启动重活里过了 grace 会被 **rename 进隔离区** ——
+// 也就是「对账 A 项目时把 B 项目正在用的检出搬走」。
+const other = await domain.ensureProject({ workspacePath: join(root, 'other-repo'), name: 'other' })
+mkdirSync(join(root, 'other-repo'), { recursive: true })
+// 造一个属于**另一个项目**的登记：路径在它的根下，不在本项目根下
+const otherPath = join(root, '.flow-worktrees', 'other-repo', 'T-OTHER')
+mkdirSync(otherPath, { recursive: true })
+writeFileSync(join(otherPath, 'live.txt'), 'x' + NL)
+await store.tx((s) => {
+  s.worktrees = s.worktrees || {}
+  s.worktrees['T-OTHER'] = { taskId: 'T-OTHER', projectId: other.id, path: otherPath, branch: 'flow/T-OTHER', baseSha: null, state: 'ready', sharedDirs: [], createdAt: new Date(0).toISOString(), updatedAt: new Date().toISOString() }
+})
+const cross = await dispatcher.reconcileWorktrees({ dryRun: false, now: later, projectId: project.id })
+await t('别的项目的登记不会被本项目对账成 orphan-dir，更不会被归档', () => {
+  const touch = cross.actions.find((a) => String(a.path || '').indexOf('T-OTHER') >= 0)
+  assert.equal(touch, undefined, '别的项目的检出被动了：' + JSON.stringify(touch))
+  assert.equal(existsSync(otherPath), true, '别的项目正在用的检出被搬走了')
+  assert.equal(existsSync(join(otherPath, 'live.txt')), true)
+})
+
+await t('按项目 id 过滤：别的项目的记录不进本项目的对账表', () => {
+  // 本项目根下**没有**这个目录，若登记表串了项目，它会以 stale-record / orphan-dir 出现在 actions 里
+  const leaked = cross.actions.find((a) => a.taskId === 'T-OTHER')
+  assert.equal(leaked, undefined, 'B 项目的 taskId 出现在 A 项目的对账结果里')
+})
+
 // ---------- ⑤ config 可以关掉 ----------
 
 await domain.updateProjectConfig(project.id, { worktreeReconcile: false }, { role: 'human' })
