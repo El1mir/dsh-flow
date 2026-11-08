@@ -200,4 +200,48 @@ await t('开 PR 失败写退避时间戳，10 分钟内不再撞', async () => {
   assert.equal(openCalls, 1, '退避窗口内不该再调')
 })
 
+
+// ---- C-04 退避：环境类 blocked 能自己恢复，契约类 blocked 永不自动重试 ----
+await t('blocked + 环境类原因（没有退避记录）→ 自动通道会再试一次', async () => {
+  mergeCalls = []
+  const task = await mergingCard('blocked')
+  await domain.store.tx((s2) => { s2.tasks[task.id].mergeReason = 'out-of-scope-dirty' })
+  await sched.tick()
+  assert.equal(mergeCalls.includes(task.id), true, '环境修好后应当能自己接着做')
+})
+
+await t('blocked + 契约类原因（head-mismatch）→ 自动通道永不重试', async () => {
+  mergeCalls = []
+  const task = await mergingCard('blocked')
+  await domain.store.tx((s2) => { s2.tasks[task.id].mergeReason = 'head-mismatch' })
+  await sched.tick()
+  assert.equal(mergeCalls.includes(task.id), false, '契约类要人先改卡，重试没有意义')
+})
+
+await t('blocked + 环境类原因但刚失败过 → 退避窗口内不撞', async () => {
+  mergeCalls = []
+  const task = await mergingCard('blocked')
+  await domain.store.tx((s2) => {
+    s2.tasks[task.id].mergeReason = 'out-of-scope-dirty'
+    s2.tasks[task.id].mergeRetryAt = new Date().toISOString()
+  })
+  await sched.tick()
+  assert.equal(mergeCalls.includes(task.id), false)
+})
+
+await t('合并失败会写 mergeRetryAt，下一拍不再撞', async () => {
+  const task = await mergingCard('ready')
+  const failing = createScheduler({
+    domain,
+    dispatcher: { merge: async () => ({ ok: false, message: 'git 挂了' }) },
+    store,
+    log: () => {},
+  })
+  await failing.tick()
+  assert.ok(store.state.tasks[task.id].mergeRetryAt, '失败要留退避时间')
+  mergeCalls = []
+  await failing.tick()
+  assert.equal(mergeCalls.length, 0)
+})
+
 console.log('automation guards ok (' + pass + ' checks)')
