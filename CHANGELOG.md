@@ -3,6 +3,46 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.007（未发布）
+
+### 卡片可以回退（调度与人都能）
+
+**问题**：正向动作的守卫都对（没走完生命周期不许推完），但走错一步没有退路 ——
+线上 T-048 评审 settled、拆分草稿已定，卡却在 `verifying`：`flow_task_split` 只收 todo/planning，
+`reject`/`rework` 的 `from` 也不含 verifying，四条路全堵，只能 取消 + 重开（`reopenCount` 涨一次，审计里像反复失败）。
+
+**改法**：新增迁移 `rewind`。
+
+- 允许的列：todo / planning / running / verifying / merging 中**更早**的一列（`REWIND_TARGETS`）；
+- 必须带 `payload.targetColumn` 与 `payload.reason`（原因写进 history 与 `lastRewind`）；
+- **不受冻结**：被阻塞的卡也能回退（`checkTransition` 里 rewind 与 cancel 一起豁免），退回去会清掉 `blocked`；
+- 回退同时清掉上一轮 `stopReport` —— 否则 verifying 的自动验收会拿旧报告直接收；
+- 有 `activeRunId` 时拒绝（run 的 stop 只认 running 列，退走了它就永远停不下来）；
+- 终态（done / cancelled）不在来源列里：想再来一次用 `reopen`，两者语义不同。
+
+**界面**：卡片详情新增「回退（退回更早的列）」卡片 —— 目标列下拉 + 原因输入 + 一次确认；
+标题也说明了会清掉什么，避免人以为只是「改个列名」。
+
+### 调度员自己的失败自动续跑
+
+**问题**：调度员/主调度没有 run，被 503 这类环境错误打断时没人接手（v0.006 只处理了评审工位）。
+
+**改法**：`resumeDispatcher` 给**同一个会话**再发一条 `queue` 消息，从断点继续（不重建会话，免得丢掉已读上下文）。
+
+- 设置项：`dispatcherAutoResume`（默认开）、`dispatcherAutoResumeMax`（默认 5，1–10）；
+- 人点「停止生成」**不续跑也不计数**（那是人的决定）；
+- 连到上限就停，并投一条收件箱「系统错误」；同一工位只投一条，等人处理；
+- 正常跑完一轮清零（续跑算成功）；计数在内存里（进程重启清零是期望行为，事实另存 `maintenance.lastSessionErrors`）。
+
+为此 `askHuman` 新增 kind **`error`**（与 info 同形状：有 body、无 asks、可标已读、不能追问，但看板徽标与色调不同），
+且 `settings.set` 从「整块重建」改成**合并**（否则每加一个设置项都可能被静默抹掉）。
+
+### 新增测试
+
+- `test/rewind.mjs`（12 checks）：verifying→planning、阶段清空、原因进 history/lastRewind、回退后 `splitTask` 可用、
+  被阻塞也能退且清旗子、清 stopReport、有 run 拒、终态拒、无 reason 拒、向前退拒、目标非法拒、调度也能退。
+- `test/dispatcher-resume.mjs`（10 checks）：默认续跑、文案要求从断点继续、计数递增、完成清零、人停不续、
+  到上限停并投系统错误、不刷第二条、开关关闭不续、上限可配、未知会话不炸。
 ## v0.006 — 2026-11-08
 
 主题：**「报错停止」也算停止事件** —— 没有 run 的会话出错时必须叫醒调度。

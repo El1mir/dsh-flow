@@ -1728,6 +1728,25 @@ window.__ModuleLoader__.load({
           return null
         }
 
+        // ---- 回退（v0.007）-----------------------------------------------------
+        //
+        // 与「取消 + 重开」的区别：回退不动取消/重开计数，也不清计划快照 ——
+        // 它就是「这一步走早了，退回去重来」，所以审计里必须留着 reason。
+        // 列顺序与 core 的 REWIND_TARGETS 一致；这里不复用后端投影是因为
+        // 回退目标只依赖列顺序，一个纯常量比一次字段投影更不容易漂。
+        var REWIND_TARGETS = ['todo', 'planning', 'running', 'verifying', 'merging']
+        var rewindTargetsFor = function (t) {
+          var i = REWIND_TARGETS.indexOf(t.column)
+          return i <= 0 ? [] : REWIND_TARGETS.slice(0, i)
+        }
+        var rewound = function (task, to, reason) {
+          return act('task.move', { taskId: task.id, action: 'rewind', payload: { targetColumn: to, reason: reason } }).then(function (res) {
+            if (res && res.ok === false) { setNotice(res.message || '回退被拒绝'); return null }
+            setNotice('已回退到 ' + (COLUMN_TITLES[to] || to))
+            reloadDrawer(task.id)
+            load()
+          })
+        }
         // ---- 渲染：顶栏 -------------------------------------------------------
         var project = st.view ? st.view.project : null
         var isChief = !!(project && sessionId && project.chiefSessionId === sessionId)
@@ -2331,8 +2350,9 @@ window.__ModuleLoader__.load({
 
         // ---- 渲染：Inbox 工单抽屉（v1.37）--------------------------------------
         // 请示类是多轮工单（有对话线、可追问、归档后留档）；info 类是一次性通知，已读即归档。
-        var INBOX_KIND_LABEL = { decision: '待决策', blocked: '阻塞', risk: '风险审批', info: '通知' }
-        var INBOX_KIND_TONE = { decision: 'warn', blocked: 'bad', risk: 'bad', info: 'info' }
+        // error 是「系统自己坏了」（调度员连续失败到头）—— 与通知同形状，但要看得出是坏消息。
+        var INBOX_KIND_LABEL = { decision: '待决策', blocked: '阻塞', risk: '风险审批', info: '通知', error: '系统错误' }
+        var INBOX_KIND_TONE = { decision: 'warn', blocked: 'bad', risk: 'bad', info: 'info', error: 'bad' }
         var renderInbox = function () {
           if (!inbox) return null
           var close = function (e) { if (e) e.stopPropagation(); setInbox(null) }
@@ -2605,10 +2625,10 @@ window.__ModuleLoader__.load({
 
           // 第一条待答复的工单默认展开：打开 Inbox 第一眼就该看到"要我做什么"，
           // 其余折起来（卡多的时候全展开会把抽屉撑爆）。
-          var defaultOpenId = (items.filter(function (x) { return x.status === 'open' && x.kind !== 'info' })[0] || {}).id || null
+          var defaultOpenId = (items.filter(function (x) { return x.status === 'open' && x.kind !== 'info' && x.kind !== 'error' })[0] || {}).id || null
           // 工单卡：五段分区
           var itemEl = function (x) {
-            if (x.kind === 'info') return infoEl(x)
+            if (x.kind === 'info' || x.kind === 'error') return infoEl(x)
             var archived = x.status === 'archived'
             var explicit = inbox.expanded ? inbox.expanded[x.id] : undefined
             var expanded = explicit === undefined ? (x.id === defaultOpenId) : !!explicit
@@ -3055,6 +3075,46 @@ window.__ModuleLoader__.load({
                   h(Card, { title: '操作' },
                     h('div', { className: 'flowv-actions' }, actionsFor(task))),
 
+                  // 回退：把卡退回更早的列。人的界面在这里，调度的入口是 flow_task_move(action="rewind")。
+                  // 不是为了绕过守卫，而是「这一步走早了」需要一个不带惩罚的退路 ——
+                  // 原来只能 取消 + 重开，重开计数会涨，看着像这张卡反复失败。
+                  rewindTargetsFor(task).length
+                    ? h(Card, { title: '回退（退回更早的列）' },
+                      h('div', { className: 'flowv-hint', style: { marginBottom: 6 } },
+                        task.activeRunId
+                          ? '这张卡还有运行中的 run（' + String(task.activeRunId).slice(0, 12) + '），先让它停下来再回退'
+                          : '回退会清掉上一轮的停止报告与阻塞标记，并把原因写进历史。当前在 ' + (COLUMN_TITLES[task.column] || task.column) + '，只能往更早的列退。'),
+                      h('div', { style: { display: 'grid', gap: 6 } },
+                        h('select', {
+                          id: 'flowv-rewind-to-' + task.id,
+                          className: 'flowv-select',
+                          defaultValue: rewindTargetsFor(task)[rewindTargetsFor(task).length - 1],
+                          disabled: !!task.activeRunId,
+                        }, rewindTargetsFor(task).map(function (c) {
+                          return h('option', { key: c, value: c }, COLUMN_TITLES[c] || c)
+                        })),
+                        h('textarea', {
+                          id: 'flowv-rewind-why-' + task.id,
+                          className: 'flowv-textarea',
+                          rows: 2,
+                          placeholder: '为什么退回这一步（写进审计历史，必填）',
+                          disabled: !!task.activeRunId,
+                        }),
+                        h(Btn, {
+                          small: true,
+                          disabled: !!task.activeRunId,
+                          onClick: function () {
+                            var sel = document.getElementById('flowv-rewind-to-' + task.id)
+                            var why = document.getElementById('flowv-rewind-why-' + task.id)
+                            var to = sel && sel.value
+                            var reason = why && why.value.trim()
+                            if (!to) return null
+                            if (!reason) { setNotice('回退必须填写原因（会写进历史）'); return null }
+                            return rewound(task, to, reason)
+                          },
+                        }, '↩ 回退到所选列')))
+                    : null,
+
                   h(Card, { title: '回信给发起对话' },
                     h('div', { className: 'flowv-hint', style: { marginBottom: 6 } },
                       task.originSessionId
@@ -3292,6 +3352,36 @@ window.__ModuleLoader__.load({
               h('div', { className: 'flowv-hint' },
                 gCur ? '当前：工人/子调度新建或重建会话都会切到这个模型，不受你在别的对话里换模型影响。'
                      : '⚠ 没设置时，工位会话会跟随 DSH 的全局选择 —— 你在任意对话里换模型，重建出的会话也会跟着变。建议在这里固定下来。'))
+              // v0.007：调度员自己那轮被 503 这类环境错误打断时，自动给同一个会话续一条消息。
+              // 这一项是人能看见「它还在自己试」的唯一凭据 —— 所以放在全局设置里，不藏在某张卡下面。
+              h('div', { className: 'flowv-field' },
+                h('label', null, '调度员失败后自动续跑'),
+                h('select', {
+                  className: 'flowv-select',
+                  defaultValue: gs.dispatcherAutoResume === false ? '0' : (gs.dispatcherAutoResume === true ? '1' : ''),
+                  onChange: function (e) {
+                    var v = String(e.target.value || '')
+                    if (!v) return
+                    saveGlobal({ dispatcherAutoResume: v === '1' })
+                  },
+                },
+                h('option', { value: '' }, '（默认：开启）'),
+                h('option', { value: '1' }, '开启'),
+                h('option', { value: '0' }, '关闭'))),
+              h('div', { className: 'flowv-field' },
+                h('label', null, '连续续跑上限'),
+                h('input', {
+                  className: 'flowv-input',
+                  type: 'number', min: 1, max: 10,
+                  defaultValue: String(gs.dispatcherAutoResumeMax || 5),
+                  onChange: function (e) {
+                    var n = Number(e.target.value)
+                    if (!Number.isFinite(n) || n < 1) return
+                    saveGlobal({ dispatcherAutoResumeMax: Math.min(10, Math.floor(n)) })
+                  },
+                })),
+              h('div', { className: 'flowv-hint' },
+                '调度员（子调度/主调度）自己那一轮报错时，系统会给同一个会话再发一条续跑消息，从断点接着做。人点停止生成不算失败、不续跑；连续失败到上限就停下来，并往收件箱发一条「系统错误」通知等你处理。')
           }
           if (settings.tab === 'project') {
             var skillList = settings.skills || []

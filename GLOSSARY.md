@@ -68,3 +68,15 @@
 - **列 ≠ 阶段**：列决定能做什么动作（状态机守卫），阶段只决定界面显示什么。
 - **降级 ≠ 故障**：`not-a-repo` 是"这个项目本来就不进合并流程"（正常）；`base-missing`、`branch-busy` 是故障。ADR-0005 之后它们不再共用 `noMerge`。
 - **自停 ≠ 阻塞**：工人自停是一轮的正常结束（有 stopReport），阻塞是要人/环境介入。
+
+## 2.6 回退与续跑（v0.007 起）
+
+| 词 | 意思 |
+| --- | --- |
+| **回退 / rewind** | 把卡退回**更早**的一列，必须带原因。不是 `reopen`：后者是「这一轮结束了、重新来过」，会清快照并计 `reopenCount`；回退是「这一步走早了，退一步接着走」。 |
+| **回退不受冻结** | 被阻塞的卡也能回退 —— 硬守卫只防「没走完生命周期就推完」，回推不设闸。退回去会清掉 `blocked` 与上一轮 `stopReport`。 |
+| **REWIND_TARGETS** | 回退能落到的列：todo / planning / running / verifying / merging。done/cancelled 不在里面。 |
+| **lastRewind** | 卡上记的最近一次回退：`{ from, to, reason, at, by }`，同时进 history。 |
+| **调度员自动续跑** | 调度员/主调度自己那轮被环境错误打断时，给同一个会话再发一条消息从断点继续。默认开，上限 5 次。 |
+| **dispatcherAutoResume / dispatcherAutoResumeMax** | 上面那条的全局设置项（`store.state.settings`）。 |
+| **error（收件箱 kind）** | 系统自己坏了（例如调度员连续失败到头）。与 `info` 同形状的通知，但计入「待处理」。 |
