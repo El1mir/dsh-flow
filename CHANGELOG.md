@@ -1,3 +1,11 @@
+## v0.016.2（package 0.0.18）：动作响应瘦身 + 已收口的卡不再显示「等待」
+
+- **动作响应不再附带整份 state**：线上实测一次 `inbox.list` 响应 682KB，其中 682KB 全是 `state`，
+  而客户端一个字段都不读。现在默认只回 `{ok, result}`，需要整份状态的消费者显式传 `args.withState: true`。
+- **已收口的卡不再「等待」**：`waitingReasonFor` 对 `column` 为 `done` / `cancelled` 直接返回 null。
+  线上 T-050~T-053 都已 done，却因为 `dependsOn` 里的 T-049 没完成而一直显示「等依赖：T-049」——
+  那是依赖链的事实，不是这张卡的现状。
+- `test/smoke.mjs` 钉住默认行为（动作响应不带 state；需要时传 withState）；`test/view-model.mjs` 补 null 入参守卫。
 ## v0.016.1（package 0.0.17）：热/冷拆分，启动只读关键部分
 
 - 全量数据保留不变，但 `flow.json` 只放**热集合**（projects / tasks / agents / runs / human_inbox / events …）；

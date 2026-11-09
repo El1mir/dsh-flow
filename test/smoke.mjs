@@ -452,9 +452,14 @@ const stateRes = await handler(req('GET', '/api/flow/state'))
 const stateJson = await stateRes.json()
 await t('GET /state 返回快照', () => { assert.equal(stateJson.ok, true); assert.ok(stateJson.state.tasks.length >= 3) })
 
-const createRes = await handler(req('POST', '/api/flow/action', { action: 'task.create', args: { projectId: project.id, title: '从 HTTP 建的任务' } }))
+const createRes = await handler(req('POST', '/api/flow/action', { action: 'task.create', args: { projectId: project.id, title: '从 HTTP 建的任务', withState: true } }))
 const createJson = await createRes.json()
 await t('POST /action 建任务', () => { assert.equal(createJson.ok, true); assert.ok(createJson.state.tasks.some((x) => x.title === '从 HTTP 建的任务')) })
+// v0.016.2：动作响应默认不再附带整份 state（线上一次 inbox.list 响应 682KB, 全耗在这），
+// 需要整份状态的消费者要显式 withState:true —— 这里钉住默认行为，防止悄悄回退。
+const lightRes = await handler(req('POST', '/api/flow/action', { action: 'inbox.list', args: {} }))
+const lightJson = await lightRes.json()
+await t('POST /action 默认不带 state（体积只够一个响应本身）', () => { assert.equal(lightJson.ok, true); assert.equal(lightJson.state, undefined) })
 
 const badRes = await handler(req('POST', '/api/flow/action', { action: 'task.move', args: { taskId: 'T-999', action: 'claim' } }))
 const badJson = await badRes.json()
