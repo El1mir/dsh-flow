@@ -999,8 +999,8 @@ window.__ModuleLoader__.load({
       '.flowv-mail-row-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row.is-unread .flowv-mail-row-title{font-weight:700}',
       '.flowv-mail-row-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
-      '.flowv-mail-main{display:flex;flex-direction:column;min-height:0;overflow:auto}',
-      '.flowv-mail-main-in{padding:14px 18px 30px;max-width:760px}',
+      '.flowv-mail-main{display:flex;flex-direction:column;min-height:0;overflow:hidden}',
+      '.flowv-mail-main-in{padding:14px 18px 30px}',
       '.flowv-mail-empty{margin:auto;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:12px;padding:40px}',
       '.flowv-mail-task{font-family:var(--dsw-font-mono,ui-monospace);font-size:11px;background:none;border:none;color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));cursor:pointer;padding:0 2px}',
       '.flowv-mail-task:hover{text-decoration:underline}',
@@ -1042,6 +1042,47 @@ window.__ModuleLoader__.load({
       '.flowv-blk.is-code{padding:0;border:none;background:var(--dsw-alias-bg-module-platform);overflow:auto;max-height:240px}',
       '.flowv-blk.is-code code{display:block;padding:8px 10px;font-size:11px;line-height:1.5;white-space:pre}',
       '@media(max-width:860px){.flowv-mail{grid-template-columns:1fr;grid-template-rows:minmax(0,38%) minmax(0,1fr)}.flowv-mail-side{border-right:none;border-bottom:1px solid var(--dsw-alias-border-l2)}.flowv-drawer--wide{width:100vw}}',
+      /* ---- v0.013：右侧消息流 + 聊天式输入区 ----------------------------
+         工单正文是第一条消息，之后每条回复是一条消息；不用气泡（长段落会被挤碎），
+         用“角色/时间一行 + 左对齐正文”的线索式排版。 */
+      '.flowv-mail-detail{display:flex;flex-direction:column;flex:1;min-height:0}',
+      '.flowv-mail-head{flex:0 0 auto;padding:10px 22px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);z-index:2}',
+      '.flowv-mail-head-top{display:flex;align-items:center;gap:8px;min-width:0}',
+      '.flowv-mail-title{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.flowv-mail-head-meta{margin-top:2px;font-size:10.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
+      '.flowv-mail-stream{flex:1;min-height:0;overflow:auto;padding:4px 22px 18px}',
+      '.flowv-msg{padding:11px 0}',
+      '.flowv-msg+.flowv-msg{border-top:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-msg-hd{display:flex;align-items:center;gap:8px;margin-bottom:5px;min-height:16px}',
+      '.flowv-msg-who{font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-msg.is-ticket .flowv-msg-who{color:var(--dsw-alias-state-business-primary)}',
+      '.flowv-msg.is-mine .flowv-msg-who{color:var(--dsw-alias-label-primary)}',
+      '.flowv-msg-at{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
+      '.flowv-msg-act{opacity:0;font-size:10.5px;padding:0 6px;height:17px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;transition:opacity var(--flowv-t-fast) var(--flowv-ease-out),border-color var(--flowv-t-fast) linear}',
+      '.flowv-msg:hover .flowv-msg-act,.flowv-msg-act:focus-visible{opacity:1}',
+      '.flowv-msg-act:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary)}',
+      '.flowv-msg-act:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}',
+      '.flowv-msg-body{font-size:12px;line-height:1.6;color:var(--dsw-alias-label-primary);word-break:break-word}',
+      '.flowv-msg-note{margin-top:4px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-mail-archived{padding:9px 0;font-size:11px;color:var(--dsw-alias-label-tertiary);border-top:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-mail-foot{padding:7px 22px;border-top:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-composer{flex:0 0 auto;padding:9px 22px 12px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base)}',
+      '.flowv-quote{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;margin-bottom:6px;border-left:2px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-module-platform);border-radius:4px;font-size:11px}',
+      '.flowv-quote-b{flex:0 0 auto;font-weight:600;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-quote-tx{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+      '.flowv-quote-x,.flowv-attach-x{flex:0 0 auto;border:none;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-size:13px;line-height:1;padding:0 2px}',
+      '.flowv-quote-x:hover,.flowv-attach-x:hover{color:var(--dsw-alias-label-primary)}',
+      '.flowv-attach{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}',
+      '.flowv-attach-chip{display:flex;align-items:center;gap:4px;padding:1px 6px;border-radius:5px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);font-size:10.5px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-attach-chip i{font-style:normal;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-attach-tx{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--dsw-font-mono,ui-monospace)}',
+      '.flowv-attach-in{width:100%;margin-bottom:6px}',
+      '.flowv-composer-tx{width:100%;min-height:62px;resize:vertical}',
+      '.flowv-composer-bar{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}',
+      '.flowv-tool{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:border-color var(--flowv-t-fast) linear,color var(--flowv-t-fast) linear}',
+      '.flowv-tool:hover{border-color:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-primary)}',
+      '.flowv-tool.on{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}',
+      '.flowv-tool:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}',
       // 折叠与邮箱的位移都不参与 reduced-motion：颜色可以留，位移全部去掉。
       /* 减少动态偏好：不是关掉动效，而是去掉"位移/缩放"这类会让人不适的部分，
          保留淡入淡出——状态变化仍然可感知，只是不晃。 */
@@ -2599,7 +2640,7 @@ window.__ModuleLoader__.load({
             var fresh = ((res.items || []).filter(function (x) { return x.status !== 'archived' && !x.readAt })[0]) || null
             if (fresh && !inboxReadSent[fresh.id]) {
               inboxReadSent[fresh.id] = true
-              act('inbox.read', { inboxId: fresh.id }).then(function () {
+              silentRead(fresh.id).then(function () {
                 setInbox(function (prev) {
                   var base2 = prev || {}
                   var items2 = (base2.items || []).map(function (x) {
@@ -2633,6 +2674,11 @@ window.__ModuleLoader__.load({
         // v0.012：哪些工单已经发过「标已读」请求。渲染期间不能改 state，
         // 所以放在模型外面做一个幂等的去重表（同一条工单只发一次）。
         var inboxReadSent = {}
+// v0.013：标已读是「顺手做的事」，失败不该弹红条 —— 老版本服务端还没这个 action，
+// 用户会看到「unknown action: inbox.read」而工单其实一切正常。
+var silentRead = function (inboxId) {
+  return postAction('inbox.read', { inboxId: inboxId }).catch(function () { return null })
+}
 
         // ---- 渲染：Inbox 工单抽屉（v1.37）--------------------------------------
         // 请示类是多轮工单（有对话线、可追问、归档后留档）；info 类是一次性通知，已读即归档。
@@ -2678,7 +2724,7 @@ window.__ModuleLoader__.load({
             // 选中即已读（列表上的未读点跟着消失）。只在第一次发，失败也不打扰人。
             if (!x.readAt && x.status !== 'archived' && !inboxReadSent[x.id]) {
               inboxReadSent[x.id] = true
-              act('inbox.read', { inboxId: x.id }).then(function () {
+              silentRead(x.id).then(function () {
                 setInbox(function (prev) {
                   var base = prev || {}
                   var items = (base.items || []).map(function (y) {
@@ -2904,7 +2950,10 @@ window.__ModuleLoader__.load({
               })) : null)
           }
 
-          var submitBar = function (x) {
+          // ---- v0.013 回复区：引用 / 附件 / 快捷采纳 -------------------------
+          // 不再是一个“提交表单”，而是聊天输入区：能引用上一句、能附加证据、能一键采纳推荐。
+          // 判断标准仍然是“人能不能直接动手”——输入框 + 三个按钮就是最小的聊天能力。
+          var composerEl = function (x) {
             var asks = Array.isArray(x.asks) ? x.asks : []
             var answers = answersOf(x)
             var missing = asks.filter(function (a) { return a.required }).filter(function (a) {
@@ -2912,50 +2961,114 @@ window.__ModuleLoader__.load({
               return v === undefined || String(v).trim() === ''
             })
             var recAll = function (e) {
-              e.stopPropagation()
+              if (e) e.stopPropagation()
               var next = Object.assign({}, answers)
               asks.forEach(function (a) { if (a.default && (next[a.key] === undefined || String(next[a.key]).trim() === '')) next[a.key] = a.default })
               var all = Object.assign({}, inbox.answers || {})
               all[x.id] = next
               setInbox(Object.assign({}, inbox, { answers: all }))
             }
-            // v1.39.1：选项永远是**可选**的 —— 只写一句补充说明也算有效回复。
-            // 只有"正文和答案都空"才拦（后端也会拒，这里是提前给反馈）。
+            var quote = inbox.quote && inbox.quote.anchor === x.id ? inbox.quote : null
+            var attach = inbox.attach && inbox.attach.anchor === x.id && Array.isArray(inbox.attach.items) ? inbox.attach.items : []
+            var setAttach = function (items) {
+              setInbox(Object.assign({}, inbox, { attach: { anchor: x.id, items: items } }))
+            }
+            var addAttach = function (raw) {
+              var v = String(raw || '').trim()
+              if (!v) return
+              if (attach.indexOf(v) >= 0) return
+              setAttach(attach.concat([v]).slice(0, 8))
+              setInbox(Object.assign({}, inbox, { attachDraft: '' }))
+            }
             var answeredCount = Object.keys(answers).filter(function (k) { return answers[k] !== undefined && String(answers[k]).trim() !== '' }).length
-            var canSend = !(busy === 'inbox.reply' || inbox.status === 'archived' || (!String(inbox.draft || '').trim() && answeredCount === 0))
-            var send = function () {
-              setBusy('inbox.reply')
+            var hasBody = !!String(inbox.draft || '').trim()
+            var canSend = !(busy === 'inbox.reply' || x.status === 'archived' || (!hasBody && answeredCount === 0 && attach.length === 0))
+            var send = function (e) {
+              if (e) e.stopPropagation()
+              if (!canSend) return
               var content = String(inbox.draft || '').trim()
-              act('inbox.reply', { inboxId: x.id, content: content, answers: answers }).then(function (res) {
+              // 引用写进正文（Markdown 引用），而不是藏在一个系统字段里：
+              // 调度看到的就是人看到的那一段。
+              if (quote) content = '> ' + quote.who + ' · ' + quote.at + '：' + quote.text + (content ? SEP + SEP + content : '')
+              // 附件按形状分派成两种组件：http(s) 是链接徽标，其余当作文件证据。
+              var blocks = attach.map(function (a) {
+                return /^https?:\/\//i.test(a)
+                  ? { type: 'link', items: [{ provider: 'web', kind: 'link', label: a, url: a }] }
+                  : { type: 'evidence', items: [{ kind: 'file', ref: a }] }
+              })
+              setBusy('inbox.reply')
+              act('inbox.reply', { inboxId: x.id, content: content, answers: answers, blocks: blocks }).then(function (res) {
                 setBusy('')
                 if (!res) return
                 setNotice('已回复。' + (missing.length ? '还有 ' + missing.length + ' 项没答，调度会再问你。' : '已通知调度员在票里回复你。'))
                 var keep = Object.assign({}, inbox.answers || {})
                 delete keep[x.id]
-                setInbox(Object.assign({}, inbox, { answers: keep, draft: '', threadOpen: Object.assign({}, inbox.threadOpen || {}, (function () { var o = {}; o[x.id] = true; return o })()) }))
+                setInbox(Object.assign({}, inbox, {
+                  answers: keep, draft: '', quote: null, attach: null, attachOpen: false, attachDraft: '',
+                }))
                 load()
                 refreshInbox({ includeArchived: inbox.tab === 'archived' })
+                // 发送后回到消息流底部：新的那条就在眼前，不用自己拖。
+                if (typeof document !== 'undefined' && document.querySelector) {
+                  var el = document.querySelector('.flowv-mail-stream')
+                  if (el) el.scrollTop = el.scrollHeight
+                }
               })
             }
-            return h('div', { className: 'flowv-ib-submit' },
+            var clearQuote = function (e) { if (e) e.stopPropagation(); setInbox(Object.assign({}, inbox, { quote: null })) }
+            return h('div', { className: 'flowv-composer' },
+              quote ? h('div', { className: 'flowv-quote' },
+                h('span', { className: 'flowv-quote-b' }, '引用 ' + quote.who + ' · ' + quote.at),
+                h('span', { className: 'flowv-quote-tx' }, quote.text),
+                h('button', { type: 'button', className: 'flowv-quote-x', title: '取消引用', onClick: clearQuote }, '×')) : null,
+              attach.length ? h('div', { className: 'flowv-attach' }, attach.map(function (a, i) {
+                return h('span', { className: 'flowv-attach-chip', key: 'at' + i },
+                  h('i', null, /^https?:/i.test(a) ? '链接' : '文件'),
+                  h('span', { className: 'flowv-attach-tx' }, a),
+                  h('button', { type: 'button', className: 'flowv-attach-x', title: '移除', onClick: function (e) { e.stopPropagation(); setAttach(attach.filter(function (_, j) { return j !== i })) } }, '×'))
+              })) : null,
+              inbox.attachOpen ? h('input', {
+                className: 'flowv-input flowv-attach-in',
+                placeholder: '文件路径或链接，回车加入（如 lib/dispatch.js 或 https://…）',
+                value: inbox.attachDraft || '',
+                onChange: function (e) { setInbox(Object.assign({}, inbox, { attachDraft: e.target.value })) },
+                onKeyDown: function (e) {
+                  if (e.key === 'Enter') { e.preventDefault(); addAttach(e.target.value) }
+                },
+              }) : null,
               h('textarea', {
-                className: 'flowv-textarea', rows: 2,
+                className: 'flowv-textarea flowv-composer-tx', rows: 3,
                 value: inbox.draft || '',
-                placeholder: '补充说明（可选）：上面没覆盖到的约束、背景、取舍都写这里',
+                placeholder: '写回复…（只说这一条需要对方知道的事；Ctrl+Enter 发送）',
                 onChange: function (e) { setInbox(Object.assign({}, inbox, { draft: e.target.value })) },
+                onKeyDown: function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(e) },
               }),
-              h('div', { className: 'flowv-ib-submit-bar' },
-                asks.some(function (a) { return a.default }) ? h(Btn, { small: true, onClick: recAll }, '采纳全部推荐') : null,
+              h('div', { className: 'flowv-composer-bar' },
+                h('button', {
+                  type: 'button', className: 'flowv-tool', title: '引用上一条内容',
+                  onClick: function (e) {
+                    e.stopPropagation()
+                    var reps = x.replies || []
+                    var last = reps[reps.length - 1]
+                    var who = last ? (last.role === 'human' ? '你' : (last.by || '调度')) : (x.from || '调度')
+                    var at = last ? last.at : x.createdAt
+                    var text = last ? last.content : (x.problem || x.topic || '')
+                    setInbox(Object.assign({}, inbox, { quote: { anchor: x.id, who: who, at: dayTime(at), text: String(text || '').slice(0, 400) } }))
+                  },
+                }, '引用'),
+                h('button', {
+                  type: 'button', className: 'flowv-tool' + (inbox.attachOpen ? ' on' : ''), title: '附一份证据或链接',
+                  onClick: function (e) { e.stopPropagation(); setInbox(Object.assign({}, inbox, { attachOpen: !inbox.attachOpen })) },
+                }, '附文件'),
+                asks.some(function (a) { return a.default }) ? h('button', { type: 'button', className: 'flowv-tool', onClick: recAll }, '采纳推荐') : null,
                 h('div', { className: 'flowv-spacer' }),
-                // 没答的必答项只提示、不拦人（选项可选，补充说明同样有效）
                 missing.length ? h('span', { className: 'flowv-ib-missing' }, '未答 ' + missing.length + ' 项（可不答）') : null,
                 h(Btn, {
                   small: true, variant: 'primary',
                   disabled: !canSend,
-                  onClick: function (e) { e.stopPropagation(); if (canSend) send() },
-                }, busy === 'inbox.reply' ? '发送中…' : '提交回复')))
+                  onClick: send,
+                }, busy === 'inbox.reply' ? '发送中…' : '发送回复')))
           }
-
           // info 类：一行通知条，点已读即归档
           var infoEl = function (x) {
             return h('div', { className: 'flowv-inbox-info', key: x.id },
@@ -3090,55 +3203,108 @@ window.__ModuleLoader__.load({
                 },
               }, '手动归档'))
           }
-          var detailEl = function (x) {
-            var archived = x.status === 'archived'
-            var asks = Array.isArray(x.asks) ? x.asks : []
-            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-main-in' },
-              h('header', { className: 'flowv-ib-head is-static' },
-                h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
-                h('b', { className: 'flowv-ib-title' }, x.topic || '(无标题)'),
-                asks.length ? h('span', { className: 'flowv-ib-progress-chip', title: '已补充 / 需要补充' }, answeredOf(x) + '/' + asks.length) : null,
-                h('div', { className: 'flowv-ib-head-right' },
-                  x.taskId ? h('button', {
-                    className: 'flowv-mail-task', type: 'button', title: '打开这张卡',
-                    onClick: function (e) { e.stopPropagation(); setInbox(null); openDrawer(x.taskId) },
-                  }, x.taskId) : null,
-                  h('span', { className: 'flowv-ib-status' }, archived ? '已归档' : (x.status === 'answered' ? '已答复 · 待调度确认' : '待答复'))),
-                h('div', { className: 'flowv-inbox-meta' },
-                  dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-')
-                  + (x.lane ? ' · ' + x.lane + ' 车道' : '')
-                  + (x.replies && x.replies.length ? ' · 往来 ' + x.replies.length + ' 条' : ''))),
-              h('div', { className: 'flowv-ib-body' },
-                blocksEl(x),
-                x.problem ? h('div', { className: 'flowv-ib-problem' }, md(x.problem)) : null,
-                factsEl(x),
-                impactEl(x),
-                archived ? null : asksEl(x),
-                suggestEl(x),
-                threadEl(x),
-                archived ? null : submitBar(x),
-                actsEl(x)))
+          // ---- v0.013 消息流：整条工单读起来像一条对话，但不用气泡 ----------
+          // 不用气泡的理由：气泡把内容挤成窄条，长段落与表格会碎；工单正文往往长，
+          // 所以用“左对齐的段落 + 上方一行角色/时间”，靠间距与发丝线区分消息。
+          var blocksOf = function (list, pref) {
+            var arr = Array.isArray(list) ? list : []
+            if (!arr.length) return null
+            return h('div', { className: 'flowv-blks' }, arr.map(function (b, i) { return blockEl({}, b, pref + i) }))
           }
-          var infoDetailEl = function (x) {
-            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-main-in' },
-              h('header', { className: 'flowv-ib-head is-static' },
-                h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
-                h('b', { className: 'flowv-ib-title' }, x.topic || '(无标题)'),
-                h('div', { className: 'flowv-ib-head-right' },
-                  h('span', { className: 'flowv-ib-status' }, x.status === 'archived' ? '已读' : '未读')),
-                h('div', { className: 'flowv-inbox-meta' }, dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-'))),
-              h('div', { className: 'flowv-ib-body' },
-                blocksEl(x),
-                x.body ? h('div', { className: 'flowv-ib-problem' }, md(x.body)) : null,
-                x.problem ? h('div', { className: 'flowv-ib-problem' }, md(x.problem)) : null,
-                actsEl(x)))
+          var msgEl = function (opts) {
+            return h('article', {
+              key: opts.key,
+              className: 'flowv-msg' + (opts.mine ? ' is-mine' : '') + (opts.ticket ? ' is-ticket' : ''),
+            },
+              h('div', { className: 'flowv-msg-hd' },
+                h('span', { className: 'flowv-msg-who' }, opts.who || '系统'),
+                h('span', { className: 'flowv-msg-at' }, opts.at || ''),
+                h('div', { className: 'flowv-spacer' }),
+                opts.onQuote ? h('button', { type: 'button', className: 'flowv-msg-act', title: '引用这条内容', onClick: opts.onQuote }, '引用') : null),
+              h('div', { className: 'flowv-msg-body' }, opts.children))
           }
-          var emptyEl = h('div', { className: 'flowv-mail-empty' },
-            h('b', null, pool.length ? '左边选一条工单' : '这里没有内容'),
-            h('span', null, pool.length
-              ? '工单是逐条处理的：选中哪条，右边只显示哪条。'
-              : (tab === 'todo' ? '没有等你回的工单。' : '换个 tab 看看。')))
 
+          var headEl = function (x) {
+            var asks = Array.isArray(x.asks) ? x.asks : []
+            var archived = x.status === 'archived'
+            return h('header', { className: 'flowv-mail-head flowv-ib-head' },
+              h('div', { className: 'flowv-mail-head-top' },
+                h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
+                h('b', { className: 'flowv-mail-title' }, x.topic || '(无标题)'),
+                h('div', { className: 'flowv-spacer' }),
+                x.taskId ? h('button', {
+                  className: 'flowv-mail-task', type: 'button', title: '打开这张卡',
+                  onClick: function (e) { e.stopPropagation(); setInbox(null); openDrawer(x.taskId) },
+                }, x.taskId) : null,
+                h('span', { className: 'flowv-ib-status' }, archived ? '已归档' : (x.status === 'answered' ? '已答复 · 待调度确认' : '待答复'))),
+              h('div', { className: 'flowv-mail-head-meta' },
+                dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-')
+                + (x.lane ? ' · ' + x.lane + ' 车道' : '')
+                + (asks.length ? ' · 补充 ' + answeredOf(x) + '/' + asks.length : '')
+                + (x.replies && x.replies.length ? ' · 往来 ' + x.replies.length + ' 条' : '')))
+          }
+
+          var streamEl = function (x) {
+            var replies = Array.isArray(x.replies) ? x.replies : []
+            return h('div', { className: 'flowv-mail-stream' },
+              msgEl({
+                key: 'ticket-' + x.id, ticket: true,
+                who: (x.from || '调度'), at: dayTime(x.createdAt),
+                onQuote: function (e) {
+                  e.stopPropagation()
+                  setInbox(Object.assign({}, inbox, { quote: { anchor: x.id, who: (x.from || '调度'), at: dayTime(x.createdAt), text: String(x.problem || x.topic || '').slice(0, 400) } }))
+                },
+                children: [
+                  blocksOf(x.blocks, 'tb'),
+                  x.problem ? h('div', { className: 'flowv-ib-problem' }, md(x.problem)) : null,
+                  factsEl(x),
+                  impactEl(x),
+                  asksEl(x),
+                  suggestEl(x),
+                ],
+              }),
+              replies.map(function (r) {
+                var mine = r.role === 'human'
+                var who = mine ? '你' : (r.role === 'system' ? '系统' : (r.by || '调度'))
+                return msgEl({
+                  key: 'r-' + r.id, mine: mine, who: who, at: dayTime(r.at),
+                  onQuote: function (e) {
+                    e.stopPropagation()
+                    setInbox(Object.assign({}, inbox, { quote: { anchor: x.id, who: who, at: dayTime(r.at), text: String(r.content || '').slice(0, 400) } }))
+                  },
+                  children: [
+                    blocksOf(r.blocks, 'rb'),
+                    r.content ? h('div', { className: 'flowv-msg-tx' }, md(r.content)) : null,
+                    (r.answers && Object.keys(r.answers).length)
+                      ? h('div', { className: 'flowv-msg-note' }, '已回答 ' + Object.keys(r.answers).length + ' 项')
+                      : null,
+                  ],
+                })
+              }),
+              x.status === 'archived' ? h('div', { className: 'flowv-mail-archived' }, '已归档 · 只读留档') : null)
+          }
+
+          var detailEl = function (x) {
+            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-detail' },
+              headEl(x),
+              streamEl(x),
+              x.status === 'archived' ? h('div', { className: 'flowv-mail-foot' }, actsEl(x)) : composerEl(x))
+          }
+
+          var infoDetailEl = function (x) {
+            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-detail' },
+              headEl(x),
+              h('div', { className: 'flowv-mail-stream' },
+                msgEl({
+                  key: 'notice-' + x.id, ticket: true, who: (x.from || '系统'), at: dayTime(x.createdAt),
+                  children: [
+                    blocksOf(x.blocks, 'nb'),
+                    x.body ? h('div', { className: 'flowv-msg-tx' }, md(x.body)) : null,
+                    x.problem ? h('div', { className: 'flowv-msg-tx' }, md(x.problem)) : null,
+                  ],
+                })),
+              h('div', { className: 'flowv-mail-foot' }, actsEl(x)))
+          }
           var sideEl = h('aside', { className: 'flowv-mail-side' },
             h('div', { className: 'flowv-mail-side-hd' },
               h('b', null, 'Inbox'),
@@ -4409,7 +4575,7 @@ window.__ModuleLoader__.load({
                 setInbox({
                   items: v.inbox.items || [], open: nOpen, answered: nAnswered,
                   loading: false, replying: null, draft: '',
-                  tab: 'todo', q: '', sel: null,
+                  tab: 'todo', q: '', sel: null, quote: null, attach: null, attachOpen: false, attachDraft: '',
                   // v1.39：结构化答复的草稿 / 展开态 / 处理记录展开态
                   answers: {}, expanded: {}, threadOpen: {},
                 });

@@ -133,5 +133,26 @@ await t('⑧ upgradeInboxItem 给老工单补 blocks/readAt，不改变其他字
   assert.deepEqual(up.context, { facts: [], evidence: [] })
 })
 
+await t('⑨ 人回复可带 blocks：只挂证据、不写正文也算有效回复', async () => {
+  await clearAll()
+  const item = await mk({ topic: '带证据回复' })
+  const r1 = await domain.replyInbox(item.id, '', { role: 'human', id: 'web' }, {
+    blocks: [{ type: 'evidence', items: [{ kind: 'file', ref: 'lib/dispatch.js' }] }],
+  })
+  const saved = store.state.human_inbox.find((x) => x.id === item.id).replies.slice(-1)[0]
+  assert.equal(saved.blocks.length, 1, '证据块要存下来')
+  assert.equal(saved.blocks[0].items[0].ref, 'lib/dispatch.js')
+  assert.equal(item.id, r1.id)
+})
+
+await t('⑩ 人回复的空内容被拒：正文、选项、组件三样全空才算空', async () => {
+  await clearAll()
+  const item = await mk({ topic: '空回复' })
+  await assert.rejects(() => domain.replyInbox(item.id, '   ', { role: 'human', id: 'web' }, {}), /回复内容不能为空/)
+  // 只选一个选项仍然可以（v1.39.1 的既有语义不能被这次改动破坏）
+  await domain.replyInbox(item.id, '', { role: 'human', id: 'web' }, { answers: { q1: 'A' } })
+  const rep = store.state.human_inbox.find((x) => x.id === item.id).replies.slice(-1)[0]
+  assert.deepEqual(rep.answers, { q1: 'A' })
+})
 if (fails.length) { console.log('FAIL inbox-mailbox ' + fails.length + '/' + (pass + fails.length)); process.exitCode = 1 }
 else console.log('PASS inbox-mailbox ' + pass + '/' + pass)

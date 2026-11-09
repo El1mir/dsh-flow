@@ -3,6 +3,16 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.013（package 0.0.13，schema 不变 15）
+
+- feat(inbox)：右栏改**消息流** —— 顶部标题条固定，工单正文是第一条消息，每次回复各成一条；
+  不用气泡（长段落/表格会被挤碎），用「角色 · 时间 + 左对齐正文 + 发丝线」的线索式排版。
+- feat(inbox)：输入区升级为聊天式 —— `引用`（把某条消息引成 Markdown 引用块写进正文）、`附文件`（路径或链接，
+  发送时转成 `evidence` / `link` 组件）、`采纳推荐`、未答计数、`Ctrl/Cmd+Enter` 发送、发送后滚到底部。
+  人回复因此可以只挂证据不写正文：`replyInbox` 的空内容判据改成「正文、选项、组件三样全空才算空」。
+- fix(client)：`inbox.read` 改成静默调用（`silentRead`）。老服务端没有这个 action 时会报 `unknown action: inbox.read`，
+  而标已读只是顺手做的事 —— 不该打断人。
+- test：`test/inbox-mailbox.mjs` 加两条（人回复带 blocks、三样全空才拒）；`test/render.mjs` 断言随信息架构更新。
 ## v0.012（package 0.0.12，schema 14 → 15）
 
 - fix(inbox)：回信报 `(store.state.runs || []).find is not a function` —— `runs` 是字典（`lib/core.js` 的 `runs: {}`），
