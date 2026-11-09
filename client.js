@@ -971,6 +971,78 @@ window.__ModuleLoader__.load({
 
       '@media(max-width:900px){.flowv-lanes{grid-template-columns:1fr}.flowv-drawer-body{grid-template-columns:1fr}.flowv-drawer{width:100%}}',
 
+      /* ---- v0.012：工单箱改成两栏邮箱 ----------------------------------
+         左列表 / 右详情。理由不是好看：工单是逐条处理的，两栏让"一次只读一条"
+         成为版式的事实，而不是靠人自己克制。 */
+      '.flowv-drawer--wide{width:min(1040px,96vw)}',
+      '.flowv-mail{display:grid;grid-template-columns:300px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}',
+      '.flowv-mail-side{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform)}',
+      '.flowv-mail-side-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--dsw-alias-label-primary);border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-mail-unread{font-size:10.5px;line-height:1.5;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary-inverted)}',
+      '.flowv-mail-search{margin:8px 12px 0;width:auto;flex:0 0 auto}',
+      '.flowv-mail-tabs{display:flex;gap:2px;padding:8px 8px 6px;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-mail-tab{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:4px 6px;font-size:11px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
+      '.flowv-mail-tab:hover{background:var(--dsw-alias-interactive-bg-hover)}',
+      '.flowv-mail-tab.on{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l2)}',
+      '.flowv-mail-tab:focus-visible{outline:2px solid var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));outline-offset:1px}',
+      '.flowv-mail-tab-n{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
+      '.flowv-mail-list{flex:1;min-height:0;overflow:auto;padding:4px}',
+      '.flowv-mail-row{display:flex;gap:8px;width:100%;text-align:left;padding:8px;border:none;border-radius:8px;background:transparent;cursor:pointer;color:inherit;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
+      '.flowv-mail-row:hover{background:var(--dsw-alias-interactive-bg-hover)}',
+      '.flowv-mail-row.is-sel{background:var(--dsw-alias-bg-base);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l3)}',
+      '.flowv-mail-row:focus-visible{outline:2px solid var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));outline-offset:1px}',
+      '.flowv-mail-dot{flex:0 0 auto;width:6px;height:6px;margin-top:5px;border-radius:50%;background:transparent}',
+      '.flowv-mail-row.is-unread .flowv-mail-dot{background:var(--dsw-alias-state-business-primary)}',
+      '.flowv-mail-row-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}',
+      '.flowv-mail-row-top{display:flex;align-items:center;gap:6px;justify-content:space-between}',
+      '.flowv-mail-row-time{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:0 0 auto}',
+      '.flowv-mail-row-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}',
+      '.flowv-mail-row.is-unread .flowv-mail-row-title{font-weight:700}',
+      '.flowv-mail-row-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-mail-main{display:flex;flex-direction:column;min-height:0;overflow:auto}',
+      '.flowv-mail-main-in{padding:14px 18px 30px;max-width:760px}',
+      '.flowv-mail-empty{margin:auto;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:12px;padding:40px}',
+      '.flowv-mail-task{font-family:var(--dsw-font-mono,ui-monospace);font-size:11px;background:none;border:none;color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));cursor:pointer;padding:0 2px}',
+      '.flowv-mail-task:hover{text-decoration:underline}',
+      '.flowv-ib-head.is-static{cursor:default}',
+      /* 预设组件：可在界面上直接动手的内容，不是又一段文字 */
+      '.flowv-blks{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}',
+      '.flowv-blk{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.55;background:var(--dsw-alias-bg-base)}',
+      '.flowv-blk.is-warn{border-color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-state-warn-tertiary)}',
+      '.flowv-blk.is-danger{border-color:var(--dsw-alias-state-error-primary);background:var(--dsw-alias-state-error-secondary)}',
+      '.flowv-blk.is-ok{border-color:var(--dsw-alias-state-success-primary)}',
+      '.flowv-blk-tx{color:var(--dsw-alias-label-primary);word-break:break-word}',
+      '.flowv-blk-choices{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}',
+      '.flowv-blk-choice{display:flex;flex-direction:column;gap:1px;text-align:left;padding:5px 9px;border:1px solid var(--dsw-alias-border-l3);border-radius:7px;background:var(--dsw-alias-bg-base);cursor:pointer;color:inherit;font-size:12px}',
+      '.flowv-blk-choice:hover{border-color:var(--dsw-alias-state-business-primary)}',
+      '.flowv-blk-choice.on{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-tertiary)}',
+      '.flowv-blk-choice.is-rec{border-style:dashed}',
+      '.flowv-blk-choice span{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-blk-dl{margin:4px 0 0;display:flex;flex-direction:column;gap:2px}',
+      '.flowv-blk-kv{display:flex;gap:8px;font-size:11.5px}',
+      '.flowv-blk-kv dt{flex:0 0 96px;color:var(--dsw-alias-label-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.flowv-blk-kv dd{margin:0;color:var(--dsw-alias-label-primary);word-break:break-word}',
+      '.flowv-blk-kv.is-warn dd{color:var(--dsw-alias-state-warn-primary)}',
+      '.flowv-blk-kv.is-danger dd{color:var(--dsw-alias-state-error-primary)}',
+      '.flowv-blk.is-ev{display:flex;flex-wrap:wrap;gap:6px}',
+      '.flowv-blk-ev{font-size:10.5px;padding:1px 5px;border-radius:5px;background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary)}',
+      '.flowv-blk.is-link{display:flex;flex-wrap:wrap;gap:8px}',
+      '.flowv-blk-link{color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));text-decoration:none;font-size:11.5px}',
+      '.flowv-blk-link:hover{text-decoration:underline}',
+      '.flowv-blk-prog-hd{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-blk-bar{height:4px;border-radius:2px;background:var(--dsw-alias-border-l2);overflow:hidden;margin-top:4px}',
+      '.flowv-blk-bar i{display:block;height:100%;background:var(--dsw-alias-state-business-primary);transition:width var(--flowv-t-med) var(--flowv-ease-out)}',
+      '.flowv-blk.is-diff{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-blk-add{color:var(--dsw-alias-state-success-primary);font-variant-numeric:tabular-nums}',
+      '.flowv-blk-del{color:var(--dsw-alias-state-error-primary);font-variant-numeric:tabular-nums}',
+      '.flowv-blk-sha{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-blk-ul{margin:4px 0 0;padding-left:2px;list-style:none;display:flex;flex-direction:column;gap:2px}',
+      '.flowv-blk-ul li{font-size:11.5px;color:var(--dsw-alias-label-primary)}',
+      '.flowv-blk-ul li.is-done{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}',
+      '.flowv-blk.is-code{padding:0;border:none;background:var(--dsw-alias-bg-module-platform);overflow:auto;max-height:240px}',
+      '.flowv-blk.is-code code{display:block;padding:8px 10px;font-size:11px;line-height:1.5;white-space:pre}',
+      '@media(max-width:860px){.flowv-mail{grid-template-columns:1fr;grid-template-rows:minmax(0,38%) minmax(0,1fr)}.flowv-mail-side{border-right:none;border-bottom:1px solid var(--dsw-alias-border-l2)}.flowv-drawer--wide{width:100vw}}',
+      // 折叠与邮箱的位移都不参与 reduced-motion：颜色可以留，位移全部去掉。
       /* 减少动态偏好：不是关掉动效，而是去掉"位移/缩放"这类会让人不适的部分，
          保留淡入淡出——状态变化仍然可感知，只是不晃。 */
       '@media (prefers-reduced-motion:reduce){',
@@ -2502,7 +2574,11 @@ window.__ModuleLoader__.load({
           // 归档区要连已归档一起拉；其余视图默认不拉
           var includeArchived = want.includeArchived === true
           setInbox(function (prev) { return Object.assign({ items: [], open: 0, answered: 0, loading: true, replying: null, draft: '', answers: {}, expanded: {}, threadOpen: {} }, prev || {}, includeArchived ? { includeArchived: true } : { includeArchived: false }) })
-          postAction('inbox.list', { projectId: v.project.id, includeArchived: includeArchived }).then(function (res) {
+          postAction('inbox.list', {
+            projectId: v.project.id,
+            includeArchived: includeArchived,
+            q: want.q || (inbox && inbox.q) || '',
+          }).then(function (res) {
             if (!res) return
             setInbox(function (prev) {
               var base = prev || {}
@@ -2513,9 +2589,28 @@ window.__ModuleLoader__.load({
                 items: Array.isArray(res.items) ? res.items : (base.items || []),
                 open: (res.counts && typeof res.counts.open === 'number') ? res.counts.open : (base.open || 0),
                 answered: (res.counts && typeof res.counts.answered === 'number') ? res.counts.answered : (base.answered || 0),
+                counts: res.counts || base.counts || {},
+                total: typeof res.total === 'number' ? res.total : (base.total || 0),
                 loading: false,
               })
             })
+            // 打开箱子先把「第一条未读」标成已读：列表里那颗未读点不该停在一条你正在看的工单上。
+            // 只发一次（inboxReadSent 去重），失败也不打扰人。
+            var fresh = ((res.items || []).filter(function (x) { return x.status !== 'archived' && !x.readAt })[0]) || null
+            if (fresh && !inboxReadSent[fresh.id]) {
+              inboxReadSent[fresh.id] = true
+              act('inbox.read', { inboxId: fresh.id }).then(function () {
+                setInbox(function (prev) {
+                  var base2 = prev || {}
+                  var items2 = (base2.items || []).map(function (x) {
+                    return x.id === fresh.id ? Object.assign({}, x, { readAt: new Date().toISOString() }) : x
+                  })
+                  var c2 = Object.assign({}, base2.counts || {})
+                  if (typeof c2.unread === 'number') c2.unread = Math.max(0, c2.unread - 1)
+                  return Object.assign({}, base2, { items: items2, counts: c2 })
+                })
+              }).catch(function () {})
+            }
           }).catch(function () {
             setInbox(function (prev) { return Object.assign({}, prev || {}, { loading: false }) })
           })
@@ -2535,6 +2630,10 @@ window.__ModuleLoader__.load({
           )
         }
 
+        // v0.012：哪些工单已经发过「标已读」请求。渲染期间不能改 state，
+        // 所以放在模型外面做一个幂等的去重表（同一条工单只发一次）。
+        var inboxReadSent = {}
+
         // ---- 渲染：Inbox 工单抽屉（v1.37）--------------------------------------
         // 请示类是多轮工单（有对话线、可追问、归档后留档）；info 类是一次性通知，已读即归档。
         // error 是「系统自己坏了」（调度员连续失败到头）—— 与通知同形状，但要看得出是坏消息。
@@ -2544,38 +2643,104 @@ window.__ModuleLoader__.load({
           if (!inbox) return null
           var close = function (e) { if (e) e.stopPropagation(); setInbox(null) }
           var all = inbox.items || []
-          var filterKind = inbox.filterKind || 'all'
-          var filterStatus = inbox.filterStatus || 'active'
-          var showArchived = filterStatus === 'archived'
-          var setFilter = function (patch) { setInbox(Object.assign({}, inbox, patch)) }
 
-          // 先按状态分组，再按类型过滤
+          // ---- v0.012 两栏邮箱 -------------------------------------------------
+          // 左：收件列表（tab + 搜索 + 行）　右：这一条工单（模板 + 组件 + 聊天区 + 回复区）。
+          // 为什么两栏：工单是逐条处理的，一次只该读一条。原来把 N 张工单的全文铺在同一列里，
+          // 人滚到第三条就忘了第一条要答什么 —— 那不是「信息多」，是「没有焦点」。
+          var TABS = [
+            { id: 'todo', label: '待我回' },
+            { id: 'replied', label: '已回复' },
+            { id: 'notices', label: '通知' },
+            { id: 'archived', label: '归档' },
+          ]
+          var tab = inbox.tab || 'todo'
+          var q = inbox.q || ''
+          var isNotice = function (x) { return x.kind === 'info' || x.kind === 'error' }
           var isActive = function (x) { return x.status !== 'archived' }
-          var pool = filterStatus === 'archived' ? all.filter(function (x) { return !isActive(x) })
-            : filterStatus === 'active' ? all.filter(isActive) : all
-          var items = pool.filter(function (x) { return filterKind === 'all' || x.kind === filterKind })
-          // 等你处理的排前面（open），其次 answered，最后归档
-          var rank = { open: 0, answered: 1, archived: 2 }
-          items = items.slice().sort(function (a, b) {
-            var ra = rank[a.status] === undefined ? 9 : rank[a.status]
-            var rb = rank[b.status] === undefined ? 9 : rank[b.status]
-            if (ra !== rb) return ra - rb
-            return String(b.updatedAt || b.createdAt || '') < String(a.updatedAt || a.createdAt || '') ? -1 : 1
+          var pool = all.filter(function (x) {
+            if (tab === 'archived') return !isActive(x)
+            if (!isActive(x)) return false
+            if (tab === 'notices') return isNotice(x)
+            if (isNotice(x)) return false
+            return tab === 'todo' ? x.status === 'open' : x.status === 'answered'
           })
-
-          var kindTab = function (id, label) {
-            return h('button', {
-              key: 'k-' + id,
-              className: 'flowv-inbox-tab' + (filterKind === id ? ' on' : ''),
-              onClick: function () { setFilter({ filterKind: id }) },
-            }, label)
+          var counts = inbox.counts || {}
+          var countOf = function (id) {
+            if (id === 'todo') return counts.open || 0
+            if (id === 'replied') return counts.answered || 0
+            if (id === 'notices') return counts.notices || 0
+            return counts.archived || 0
           }
-          var statusTab = function (id, label) {
+          var selected = pool.filter(function (x) { return x.id === (inbox.sel || '') })[0] || pool[0] || null
+          var select = function (x) {
+            setInbox(Object.assign({}, inbox, { sel: x.id, draft: '' }))
+            // 选中即已读（列表上的未读点跟着消失）。只在第一次发，失败也不打扰人。
+            if (!x.readAt && x.status !== 'archived' && !inboxReadSent[x.id]) {
+              inboxReadSent[x.id] = true
+              act('inbox.read', { inboxId: x.id }).then(function () {
+                setInbox(function (prev) {
+                  var base = prev || {}
+                  var items = (base.items || []).map(function (y) {
+                    return y.id === x.id ? Object.assign({}, y, { readAt: new Date().toISOString() }) : y
+                  })
+                  var c = Object.assign({}, base.counts || {})
+                  if (typeof c.unread === 'number') c.unread = Math.max(0, c.unread - 1)
+                  return Object.assign({}, base, { items: items, counts: c })
+                })
+              }).catch(function () {})
+            }
+          }
+          var answeredOf = function (x) {
+            var answers = answersOf(x)
+            return (Array.isArray(x.asks) ? x.asks : []).filter(function (a) {
+              return answers[a.key] !== undefined && String(answers[a.key]).trim() !== ''
+            }).length
+          }
+          var tabsEl = h('nav', { className: 'flowv-mail-tabs' }, TABS.map(function (t) {
+            var on = tab === t.id
             return h('button', {
-              key: 's-' + id,
-              className: 'flowv-inbox-tab' + (filterStatus === id ? ' on' : ''),
-              onClick: function (e) { e.stopPropagation(); setFilter({ filterStatus: id }); refreshInbox({ includeArchived: id === 'archived' || id === 'all' }) },
-            }, label)
+              key: 'tab-' + t.id, type: 'button',
+              className: 'flowv-mail-tab' + (on ? ' on' : ''),
+              'aria-pressed': on ? 'true' : 'false',
+              onClick: function (e) {
+                e.stopPropagation()
+                if (t.id === 'archived') refreshInbox({ includeArchived: true })
+                else refreshInbox({ includeArchived: false })
+                setInbox(Object.assign({}, inbox, { tab: t.id, sel: null }))
+              },
+            }, t.label, h('span', { className: 'flowv-mail-tab-n' }, String(countOf(t.id))))
+          }))
+          var searchEl = h('input', {
+            className: 'flowv-input flowv-mail-search', type: 'search', value: q,
+            placeholder: '搜索标题 / 卡号…',
+            onChange: function (e) { setInbox(Object.assign({}, inbox, { q: e.target.value })) },
+            onKeyDown: function (e) {
+              if (e.key !== 'Enter') return
+              e.stopPropagation()
+              refreshInbox({ q: e.target.value, includeArchived: tab === 'archived' })
+            },
+          })
+          var rowEl = function (x) {
+            var on = selected && selected.id === x.id
+            var unread = !x.readAt && x.status !== 'archived'
+            var asks = Array.isArray(x.asks) ? x.asks : []
+            return h('button', {
+              key: 'row-' + x.id, type: 'button',
+              className: 'flowv-mail-row' + (on ? ' is-sel' : '') + (unread ? ' is-unread' : ''),
+              onClick: function (e) { e.stopPropagation(); select(x) },
+            },
+              h('span', { className: 'flowv-mail-dot', 'aria-hidden': 'true' }),
+              h('div', { className: 'flowv-mail-row-main' },
+                h('div', { className: 'flowv-mail-row-top' },
+                  h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
+                  h('span', { className: 'flowv-mail-row-time' }, dayTime(x.updatedAt || x.createdAt))),
+                h('span', { className: 'flowv-mail-row-title' }, x.topic || '(无标题)'),
+                h('div', { className: 'flowv-mail-row-meta' },
+                  x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
+                  asks.length ? h('span', null, answeredOf(x) + '/' + asks.length) : null,
+                  x.status === 'answered' ? h('span', null, '已回') : null,
+                  x.status === 'archived' ? h('span', null, '归档') : null)))
           }
 
           // 选项按钮：点了把选项文字填进回复框，人可以接着补充
@@ -2769,7 +2934,7 @@ window.__ModuleLoader__.load({
                 delete keep[x.id]
                 setInbox(Object.assign({}, inbox, { answers: keep, draft: '', threadOpen: Object.assign({}, inbox.threadOpen || {}, (function () { var o = {}; o[x.id] = true; return o })()) }))
                 load()
-                refreshInbox({ includeArchived: showArchived })
+                refreshInbox({ includeArchived: inbox.tab === 'archived' })
               })
             }
             return h('div', { className: 'flowv-ib-submit' },
@@ -2805,43 +2970,146 @@ window.__ModuleLoader__.load({
                     onClick: function (e) {
                       if (e) e.stopPropagation()
                       setBusy('inbox.read')
-                      act('inbox.mark-read', { inboxId: x.id }).then(function () { setBusy(''); refreshInbox({ includeArchived: showArchived }) })
+                      act('inbox.mark-read', { inboxId: x.id }).then(function () { setBusy(''); refreshInbox({ includeArchived: inbox.tab === 'archived' }) })
                     },
                   }, '已读'))
           }
 
-          // 第一条待答复的工单默认展开：打开 Inbox 第一眼就该看到"要我做什么"，
-          // 其余折起来（卡多的时候全展开会把抽屉撑爆）。
-          var defaultOpenId = (items.filter(function (x) { return x.status === 'open' && x.kind !== 'info' && x.kind !== 'error' })[0] || {}).id || null
           // 工单卡：五段分区
-          var itemEl = function (x) {
-            if (x.kind === 'info' || x.kind === 'error') return infoEl(x)
-            var archived = x.status === 'archived'
-            var explicit = inbox.expanded ? inbox.expanded[x.id] : undefined
-            var expanded = explicit === undefined ? (x.id === defaultOpenId) : !!explicit
+
+          // ---- 预设组件 -------------------------------------------------------
+          // 组件是「可在界面上直接动手的内容」：快捷选项点一下就填进你的回答，
+          // 现状卡片 / 证据 / 链接是**只读的事实**，进度与变更让人一眼知道走到哪。
+          // 不认识的类型在服务端就被丢了（lib/inbox-blocks.js 白名单），这里只负责画。
+          var BLOCK_TONE = { info: 'is-info', warn: 'is-warn', danger: 'is-danger', ok: 'is-ok' }
+          var toneCls = function (t) { return t && BLOCK_TONE[t] ? ' ' + BLOCK_TONE[t] : '' }
+          var chooseBlock = function (x, b, o) {
             var asks = Array.isArray(x.asks) ? x.asks : []
-            var answered = 0
-            ;(x.replies || []).forEach(function (r) { answered += Object.keys(r.answers || {}).length })
-            var prog = asks.length ? Math.min(answered, asks.length) + '/' + asks.length : ''
-            var toggle = function (e) {
-              if (e) e.stopPropagation()
-              var o = Object.assign({}, inbox.expanded || {}); o[x.id] = !expanded
-              setInbox(Object.assign({}, inbox, { expanded: o }))
+            var hit = asks.filter(function (a) { return a.key === b.key })[0]
+            if (hit) { setAnswer(x, hit.key, o.value); return }
+            // 组件上的选项没有对应 ask：当成一句现成的回复填进输入框，人还能改。
+            var line = String(inbox.draft || '').trim()
+            setInbox(Object.assign({}, inbox, { draft: (line ? line + String.fromCharCode(10) : '') + o.label }))
+          }
+          var blockEl = function (x, b, key) {
+            if (b.type === 'note') {
+              return h('div', { key: key, className: 'flowv-blk' + toneCls(b.tone) },
+                b.title ? h('b', null, b.title) : null,
+                h('div', { className: 'flowv-blk-tx' }, b.text))
             }
-            return h('article', { className: 'flowv-inbox-item' + (archived ? ' is-archived' : '') + (expanded ? ' is-open' : ''), key: x.id },
-              // ① 概况条
-              h('header', { className: 'flowv-ib-head', onClick: toggle, role: 'button', tabIndex: 0, onKeyDown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(e) } } },
+            if (b.type === 'choice') {
+              return h('div', { key: key, className: 'flowv-blk is-choice' },
+                h('div', { className: 'flowv-blk-tx' }, h('b', null, b.key), ' · ' + b.prompt),
+                h('div', { className: 'flowv-blk-choices' }, (b.options || []).map(function (o) {
+                  var on = (answersOf(x) || {})[b.key] === o.value
+                  return h('button', {
+                    key: 'bc-' + key + '-' + o.value, type: 'button',
+                    className: 'flowv-blk-choice' + (on ? ' on' : '') + (o.recommended ? ' is-rec' : ''),
+                    'aria-pressed': on ? 'true' : 'false',
+                    onClick: function (e) { e.stopPropagation(); chooseBlock(x, b, o) },
+                  }, h('b', null, o.label), o.impact ? h('span', null, o.impact) : null)
+                })))
+            }
+            if (b.type === 'facts') {
+              return h('div', { key: key, className: 'flowv-blk is-facts' },
+                b.title ? h('b', null, b.title) : null,
+                h('dl', { className: 'flowv-blk-dl' }, (b.items || []).map(function (it, i) {
+                  return h('div', { key: 'f' + i, className: 'flowv-blk-kv' + toneCls(it.tone) },
+                    h('dt', null, it.k), h('dd', null, it.v))
+                })))
+            }
+            if (b.type === 'evidence') {
+              return h('div', { key: key, className: 'flowv-blk is-ev' }, (b.items || []).map(function (e, i) {
+                return h('code', { key: 'e' + i, className: 'flowv-blk-ev', title: e.ref },
+                  (e.kind || 'ref') + ':' + String(e.ref || '').slice(0, 60))
+              }))
+            }
+            if (b.type === 'link') {
+              return h('div', { key: key, className: 'flowv-blk is-link' }, (b.items || []).map(function (l, i) {
+                return h('a', {
+                  key: 'l' + i, className: 'flowv-blk-link', href: l.url,
+                  target: '_blank', rel: 'noreferrer noopener',
+                  onClick: function (e) { e.stopPropagation() },
+                }, (l.number ? l.kind + ' #' + l.number : (l.label || l.url)) + (l.state ? ' · ' + l.state : ''))
+              }))
+            }
+            if (b.type === 'progress') {
+              var pct = Math.max(0, Math.min(100, Math.round((b.done / b.total) * 100)))
+              return h('div', { key: key, className: 'flowv-blk is-prog' },
+                h('div', { className: 'flowv-blk-prog-hd' },
+                  h('span', null, b.label || '进度'),
+                  h('span', { className: 'flowv-mono' }, b.done + '/' + b.total)),
+                h('div', { className: 'flowv-blk-bar' }, h('i', { style: { width: pct + '%' } })))
+            }
+            if (b.type === 'diff') {
+              return h('div', { key: key, className: 'flowv-blk is-diff' },
+                h('span', { className: 'flowv-mono' }, b.files + ' 文件'),
+                h('span', { className: 'flowv-blk-add' }, '+' + b.additions),
+                h('span', { className: 'flowv-blk-del' }, '-' + b.deletions),
+                b.base || b.head
+                  ? h('span', { className: 'flowv-mono flowv-blk-sha' },
+                    String(b.base || '?').slice(0, 8) + ' → ' + String(b.head || '?').slice(0, 8))
+                  : null)
+            }
+            if (b.type === 'checklist') {
+              return h('div', { key: key, className: 'flowv-blk is-list' },
+                b.title ? h('b', null, b.title) : null,
+                h('ul', { className: 'flowv-blk-ul' }, (b.items || []).map(function (it) {
+                  return h('li', { key: 'c' + it.id, className: it.checked ? 'is-done' : '' },
+                    (it.checked ? '☑ ' : '☐ ') + it.text)
+                })))
+            }
+            return h('pre', { key: key, className: 'flowv-blk is-code' }, h('code', null, b.text))
+          }
+          var blocksEl = function (x) {
+            var list = Array.isArray(x.blocks) ? x.blocks : []
+            var reps = x.replies || []
+            var lastRep = reps[reps.length - 1]
+            var extra = lastRep && Array.isArray(lastRep.blocks) ? lastRep.blocks : []
+            var merged = list.concat(extra)
+            if (!merged.length) return null
+            return h('div', { className: 'flowv-blks' }, merged.map(function (b, i) { return blockEl(x, b, 'bk' + i) }))
+          }
+
+          var actsEl = function (x) {
+            if (x.status === 'archived') return h('div', { className: 'flowv-inbox-acts' }, h('span', { className: 'flowv-hint' }, '已归档 · 只读留档'))
+            return h('div', { className: 'flowv-inbox-acts' },
+              h(Btn, {
+                small: true,
+                title: '手动归档：一般不需要 —— 调度看到你的回复后会自己判断阻塞是否消除并归档',
+                disabled: busy === 'inbox.archive',
+                onClick: function (e) {
+                  e.stopPropagation()
+                  if (!window.confirm('直接归档这条工单？' + String.fromCharCode(10) + String.fromCharCode(10) + '通常应该让调度自己判断阻塞是否消除后再归档；这里手动归档是兜底。')) return
+                  setBusy('inbox.archive')
+                  act('inbox.archive', { inboxId: x.id }).then(function () {
+                    setBusy('')
+                    load()
+                    refreshInbox({ includeArchived: tab === 'archived' })
+                  })
+                },
+              }, '手动归档'))
+          }
+          var detailEl = function (x) {
+            var archived = x.status === 'archived'
+            var asks = Array.isArray(x.asks) ? x.asks : []
+            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-main-in' },
+              h('header', { className: 'flowv-ib-head is-static' },
                 h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
                 h('b', { className: 'flowv-ib-title' }, x.topic || '(无标题)'),
-                asks.length ? h('span', { className: 'flowv-ib-progress-chip', title: '已补充 / 需要补充' }, prog) : null,
+                asks.length ? h('span', { className: 'flowv-ib-progress-chip', title: '已补充 / 需要补充' }, answeredOf(x) + '/' + asks.length) : null,
                 h('div', { className: 'flowv-ib-head-right' },
-                  x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
-                  h('span', { className: 'flowv-ib-status' }, archived ? '已归档' : (x.status === 'answered' ? '已答复 · 待调度确认' : '待答复')),
-                  h('span', { className: 'flowv-ib-chev' }, expanded ? '收起' : '展开')),
+                  x.taskId ? h('button', {
+                    className: 'flowv-mail-task', type: 'button', title: '打开这张卡',
+                    onClick: function (e) { e.stopPropagation(); setInbox(null); openDrawer(x.taskId) },
+                  }, x.taskId) : null,
+                  h('span', { className: 'flowv-ib-status' }, archived ? '已归档' : (x.status === 'answered' ? '已答复 · 待调度确认' : '待答复'))),
                 h('div', { className: 'flowv-inbox-meta' },
-                  dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-') + (x.lane ? ' · ' + x.lane + ' 车道' : '') +
-                  (x.replies && x.replies.length ? ' · 往来 ' + x.replies.length + ' 条' : ''))),
-              expanded ? h('div', { className: 'flowv-ib-body' },
+                  dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-')
+                  + (x.lane ? ' · ' + x.lane + ' 车道' : '')
+                  + (x.replies && x.replies.length ? ' · 往来 ' + x.replies.length + ' 条' : ''))),
+              h('div', { className: 'flowv-ib-body' },
+                blocksEl(x),
                 x.problem ? h('div', { className: 'flowv-ib-problem' }, md(x.problem)) : null,
                 factsEl(x),
                 impactEl(x),
@@ -2849,57 +3117,56 @@ window.__ModuleLoader__.load({
                 suggestEl(x),
                 threadEl(x),
                 archived ? null : submitBar(x),
-                h('div', { className: 'flowv-inbox-acts' },
-                  h(Btn, {
-                    small: true,
-                    title: '手动归档：一般不需要 —— 调度看到你的回复后会自己判断阻塞是否消除并归档',
-                    disabled: busy === 'inbox.archive',
-                    onClick: function (e) {
-                      e.stopPropagation()
-                      if (!window.confirm('直接归档这条工单？\n\n通常应该让调度自己判断阻塞是否消除后再归档；这里手动归档是兜底。')) return
-                      setBusy('inbox.archive')
-                      act('inbox.archive', { inboxId: x.id }).then(function () { setBusy(''); load(); refreshInbox({ includeArchived: showArchived }) })
-                    },
-                  }, '手动归档'))) : null)
+                actsEl(x)))
           }
-
-          // 统计
-          var counts = { open: 0, answered: 0, archived: 0 }
-          for (var i = 0; i < all.length; i += 1) {
-            var s0 = all[i].status
-            if (counts[s0] !== undefined) counts[s0] += 1
+          var infoDetailEl = function (x) {
+            return h('div', { key: 'd-' + x.id, className: 'flowv-mail-main-in' },
+              h('header', { className: 'flowv-ib-head is-static' },
+                h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
+                h('b', { className: 'flowv-ib-title' }, x.topic || '(无标题)'),
+                h('div', { className: 'flowv-ib-head-right' },
+                  h('span', { className: 'flowv-ib-status' }, x.status === 'archived' ? '已读' : '未读')),
+                h('div', { className: 'flowv-inbox-meta' }, dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-'))),
+              h('div', { className: 'flowv-ib-body' },
+                blocksEl(x),
+                x.body ? h('div', { className: 'flowv-ib-problem' }, md(x.body)) : null,
+                x.problem ? h('div', { className: 'flowv-ib-problem' }, md(x.problem)) : null,
+                actsEl(x)))
           }
+          var emptyEl = h('div', { className: 'flowv-mail-empty' },
+            h('b', null, pool.length ? '左边选一条工单' : '这里没有内容'),
+            h('span', null, pool.length
+              ? '工单是逐条处理的：选中哪条，右边只显示哪条。'
+              : (tab === 'todo' ? '没有等你回的工单。' : '换个 tab 看看。')))
 
-          // v1.39：Inbox 也是全屏层（和卡片详情同一套外壳）—— 五段分区在 560px 抽屉里挤成一团
+          var sideEl = h('aside', { className: 'flowv-mail-side' },
+            h('div', { className: 'flowv-mail-side-hd' },
+              h('b', null, 'Inbox'),
+              counts.unread ? h('span', { className: 'flowv-mail-unread' }, counts.unread + ' 未读') : null,
+              h('div', { className: 'flowv-spacer' })),
+            searchEl,
+            tabsEl,
+            h('div', { className: 'flowv-mail-list' },
+              inbox.loading && !pool.length
+                ? h('div', { className: 'flowv-loading' }, '载入中…')
+                : (pool.length ? pool.map(rowEl) : h('div', { className: 'flowv-hint' }, tab === 'todo' ? '没有等你回的工单。' : '这里没有内容。'))))
+          var mainEl = h('section', { className: 'flowv-mail-main' },
+            selected ? (isNotice(selected) ? infoDetailEl(selected) : detailEl(selected)) : emptyEl)
+
           return h('div', { className: 'flowv-sheet-stack', key: 'inbox-stack' },
             h('div', { className: 'flowv-sheet-layer is-top', style: { zIndex: 240 } },
-              h('div', { className: 'flowv-sheet-mask flowv-drawer-mask is-top is-open', onClick: close },
-            h('div', { className: 'flowv-drawer flowv-drawer--narrow flowv-sheet is-open', onClick: function (e) { e.stopPropagation() }, style: { zIndex: 241 } },
-              h('div', { className: 'flowv-drawer-head' },
-                h(Btn, { small: true, onClick: close }, '← 看板'),
-                h('b', null, 'Inbox'),
-                h(Chip, { tone: counts.open > 0 ? 'bad' : 'info' }, (counts.open || 0) + ' 条待答复'),
-                h('div', { className: 'flowv-spacer' })
-              ),
-              h('div', { className: 'flowv-inbox-filters' },
-                h('div', { className: 'flowv-inbox-tabs' },
-                  kindTab('all', '全部'),
-                  kindTab('decision', '待决策'),
-                  kindTab('blocked', '阻塞'),
-                  kindTab('risk', '风险审批'),
-                  kindTab('info', '通知')),
-                h('div', { className: 'flowv-inbox-tabs' },
-                  statusTab('active', '处理中'),
-                  statusTab('archived', '已归档'),
-                  statusTab('all', '全部状态'))),
-              h('div', { className: 'flowv-drawer-body' },
-                h('div', { className: 'flowv-hint', style: { marginBottom: '8px' } },
-                  showArchived
-                    ? '归档区：只读留档。历史工单和对话线都能查。'
-                    : '调度遇到需要你拍板的事会写到这里。你回复后它判断阻塞是否消除，再归档并继续推进。通知类点「已读」即归档。'),
-                items.length ? items.map(itemEl)
-                  : h('div', { className: 'flowv-loading' }, inbox.loading ? '载入中…' : '这个筛选下没有内容。'))
-            ))))
+              h('div', { className: 'flowv-sheet-mask flowv-drawer-mask is-top is-open', onClick: close }),
+              h('div', {
+                className: 'flowv-drawer flowv-drawer--wide flowv-sheet is-open',
+                onClick: function (e) { e.stopPropagation() },
+                style: { zIndex: 241 },
+              },
+                h('div', { className: 'flowv-drawer-head' },
+                  h(Btn, { small: true, onClick: close }, '← 看板'),
+                  h('b', null, 'Inbox'),
+                  h(Chip, { tone: (counts.open || 0) > 0 ? 'bad' : 'info' }, (counts.open || 0) + ' 条待答复'),
+                  h('div', { className: 'flowv-spacer' })),
+                h('div', { className: 'flowv-mail' }, sideEl, mainEl))))
         }
         // ---- 渲染：详情层（v1.39 全屏 + 多层） --------------------------------
         /**
@@ -4142,7 +4409,7 @@ window.__ModuleLoader__.load({
                 setInbox({
                   items: v.inbox.items || [], open: nOpen, answered: nAnswered,
                   loading: false, replying: null, draft: '',
-                  filterKind: 'all', filterStatus: 'active',
+                  tab: 'todo', q: '', sel: null,
                   // v1.39：结构化答复的草稿 / 展开态 / 处理记录展开态
                   answers: {}, expanded: {}, threadOpen: {},
                 });

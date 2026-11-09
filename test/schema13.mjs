@@ -26,10 +26,11 @@ async function t(name, fn) {
 }
 
 // ---- A：schema 常量与迁移表 --------------------------------------------------
-await t('SCHEMA_VERSION 是 14，且 MIGRATIONS[12] / MIGRATIONS[13] 都在', () => {
-  assert.equal(SCHEMA_VERSION, 14)
+await t('SCHEMA_VERSION 是 15，且 MIGRATIONS[12..14] 都在', () => {
+  assert.equal(SCHEMA_VERSION, 15)
   assert.equal(typeof MIGRATIONS[13], 'function', 'v0.008 的 unitMode 迁移要挂在 13 上')
   assert.equal(typeof MIGRATIONS[12], 'function')
+  assert.equal(typeof MIGRATIONS[14], 'function', 'v0.012 的 blocks/readAt 迁移要挂在 14 上')
 })
 
 // ---- B：迁移 12→13 只补字段 ------------------------------------------------
@@ -46,7 +47,7 @@ await t('schema 12→13：补 kind/visibility/external/branchFrom/integrationBra
   }))
   const st = new Store(f)
   await st.load()
-  assert.equal(st.state.schemaVersion, 14)
+  assert.equal(st.state.schemaVersion, 15)
   const t1 = st.state.tasks['T-1']
   assert.equal(t1.kind, 'card')
   assert.equal(t1.visibility, 'board')

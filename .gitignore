@@ -23,3 +23,8 @@ nul
 .sm2.exit
 .sm.log
 .sm.exit
+# 测试日志（每次跑 suite 生成，不该进库）
+.ft*.log
+.ft*.exit
+.sm*.log
+.sm*.exit

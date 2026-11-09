@@ -95,6 +95,16 @@
 - **并行（parallel）**：`scope` 不相交的子卡。各拿一条瞬时分枝与自己的检出，同时跑。
 - **瞬时分枝（scratch branch）**：`unit/<parentId>/<taskId>`。只为「第二个 HEAD」存在，验收后删掉，不开 PR、不进审核。
 
+## 2.10 工单箱与组件（v0.012 起）
+
+- **工单（ticket）**：`human_inbox[*]` 的一条。四个 tab 按 `status` 与 `kind` 分桶，不按「谁发的」分。
+- **已读（readAt）**：人**看过**这条工单的时间。与 `status` 正交：看过 ≠ 处理完，回完 ≠ 已归档。
+- **待我回 / 已回复 / 通知 / 归档**：`open` / `answered` / `info|error` / `archived` 的界面名字。
+- **预设组件（block）**：调度随工单附带的结构化积木（九种），判据是「人能不能直接在界面上动手」。
+- **快捷选项（choice block）**：可点的选项组。点一下 = 把那个值填进对应 ask（没有同名 ask 时填进回复框）。
+- **现状卡片（facts block）**：键值对形式的现状，替代一段散文。
+- **徽标（evidence / link block）**：等宽小签，前者是证据（commit/file/test），后者是外链（issue/PR/CI）。
+- **瞬时分枝**（承 v0.010）：并行子卡的临时分支 `unit/<parent>/<child>`，验收后即删。
 ## 2.9 三层密度（v0.011 起）
 
 **三层密度**（three-layer density）：同一个调度台按「一个问题一层」切成三层 —— 看板回答「哪儿卡住了」，

@@ -3,6 +3,29 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.012（package 0.0.12，schema 14 → 15）
+
+- fix(inbox)：回信报 `(store.state.runs || []).find is not a function` —— `runs` 是字典（`lib/core.js` 的 `runs: {}`），
+  `lib/http.js` 却当数组用。改为按 id 取，并把「顺手 steer 在跑的工人」整段包进 try/catch：失败写 `steerFailed` 与一条
+  `inbox-reply-steer-failed` 的 message_log，**回复本身仍然成功**（原来报错但消息其实回进去了，提示与事实相反）。
+  新增 `test/inbox-reply.mjs`（4 checks）。
+- feat(inbox)：工单箱改成**两栏邮箱**（左收件列表 / 右只显示选中那一条）：四个 tab（待我回 / 已回复 / 通知 / 归档）+ 搜索 +
+  未读点 + 行内进度；右栏是「概况条 → 预设组件 → 问题 → 现状 → 影响 → 需要你补充 → 调度建议 → 处理记录 → 回复区」。
+  README 顶部与 `.wayfinder/tickets/inbox-mailbox.md` 有完整信息架构。
+- feat(inbox)：**预设组件**（九种）。`lib/inbox-blocks.js` 新增 `BLOCK_TYPES` / `MAX_BLOCKS=12` / `normalizeBlocks`（白名单、
+  单块 2000 字符截断、choice 至少 2 项且只留 1 个 recommended、link 只放行 `^https?://`）/ `blocksToText`（一行一块，给模型读）。
+  `flow_ask_human` 与 `flow_inbox_reply` 新增 `blocks` 参数；`flow_inbox_list` 输出多一行「组件：…」摘要。
+  新增 `test/inbox-blocks.mjs`（9 checks）。
+- feat(schema)：`SCHEMA_VERSION` 14 → 15，`MIGRATIONS[14]` 补 `human_inbox[*].blocks=[]`、`readAt`（归档视为已读，其余 null，
+  判据 `readAt === undefined` 保证幂等）、`replies[*].blocks=[]`。
+- feat(inbox 数据层)：`readAt`（已读）与 `status`（处理状态）**正交**；`markInboxRead` 只动 `readAt` 且幂等；
+  `appendInboxFollowUp(inboxId, content, actor, {blocks})` 追问后**重新未读**（`status='open'` + `readAt=null`）；
+  `inboxList` 新增 `kind` / `q` / `offset`，改成**倒序**（新→旧，原来 `slice(-limit)` 让首屏显示最旧的几条）并以 `id` 兜底稳定排序；
+  新增 `inboxCount`。新增 `test/inbox-mailbox.mjs`（8 checks）。
+- feat(inbox 出口)：`lib/panel.js` 的 inbox 投影显式映射全部字段并给出 `counts.unread` / `counts.notices`；
+  `inbox.list` 返回 `{items, counts, total, hasMore}`；新增 `inbox.read`（与 `inbox.mark-read` 不同：后者是通知类归档）。
+- style：`VIEW_CSS` 加邮箱与组件令牌化样式（`--flowv-space-*` / `--flowv-fs-*` / `--flowv-t-*`），
+  左列 300px、正文 `max-width:760px`、数字 `tabular-nums`、`prefers-reduced-motion` 去位移；窄屏（≤860px）单列堆叠。
 ## v0.011（package 0.0.11，schema 仍 14）
 
 - 新增 `lib/view-model.js`（297 行，纯函数）：`BADGE_ORDER` / `badgesFor` / `chipsFor(task, max)` / `headlineFor` / `cardView`，
