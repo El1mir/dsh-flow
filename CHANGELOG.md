@@ -3,6 +3,13 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.010（package 0.0.10，schema 仍 14）
+
+- 子卡的互斥判据从「同父卡一律串行」改成「**scope 重叠才串行**」：`lib/units.js` 新增 `scopesConflict` / `canRunParallel` / `scratchBranchFor`。
+- 派工三条规则：有互斥兄弟在跑 → 共用父检出排队；只有不互斥的兄弟在跑 → 瞬时分枝 `unit/<parent>/<task>` + 自己的检出并行；没有兄弟在跑 → 仍走共用（并行的开销只在真要并发时才付）。
+- 并行子卡验收：合进父分支 → isAncestor 校验 → 删瞬时分枝 → `done-in-parent`；落点过期时先 rebase 再合，仍冲突则 block 并写冲突文件（不静默丢改动）。
+- 新配置 `unitParallel`（默认 `true`，`false` 回到 v0.009 全串行）。
+- 新增 `test/unit-parallel.mjs`（16 checks）；`test/unit-shared.mjs` 显式关并行，继续钉共用检出那条路。
 ## v0.009（package 0.0.9，schema 仍为 14）
 
 - `rollupParent` 按交付事实（子卡 phase）分类，结果写 `task.rollup`；`domain.recordRollup` 是唯一写入口。

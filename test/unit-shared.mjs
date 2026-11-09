@@ -50,7 +50,9 @@ const rt = {
 const domain = new FlowDomain(store, rt)
 const dispatcher = createDispatcher({ domain, runtime: rt, store })
 const project = await domain.ensureProject({ workspacePath: repo, name: 'unit' })
-await domain.updateProjectConfig(project.id, { mergeStrategy: 'merge', outOfScopeCheck: false, lockRunningWorktrees: false })
+// C-11 起：两张 scope 不重叠的子卡默认会并行。这份测试要验的是**共用父检出**那条路，
+// 所以显式关掉并行 —— 不是绕开新规则，是选择被测路径（并行那条由 test/unit-parallel.mjs 钉）。
+await domain.updateProjectConfig(project.id, { mergeStrategy: 'merge', outOfScopeCheck: false, lockRunningWorktrees: false, unitParallel: false })
 await domain.ensureAgents(project.id)
 
 let pass = 0
