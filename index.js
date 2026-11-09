@@ -284,6 +284,14 @@ export function apply(ctx) {
   const storeReady = store.ready()
   storeReady.catch((err) => log('store load failed: ' + msgOf(err)))
 
+  // ---- 读侧短缓存（v0.016.3） -------------------------------------------------
+  // 调度台面板有个 8 秒轮询：project.metrics（token 统计）和 inbox.list。
+  // token 统计要把每个会话 inspect + foldUsage 一遍，4.7M token 的会话单次 150ms；
+  // 面板只要开着就每 8 秒烧一次主线程，打开时的首屏也排在这后面。
+  // 这里只缓存「按项目汇总的 token 数字」——它是累计值，20 秒陈旧度不影响任何决策。
+  const TOKEN_STATS_TTL_MS = 20 * 1000
+  const tokenStatsCache = new Map()
+
   // ---- DSH 适配层：会话/归档/goal。任何一项缺失都只影响对应动作。 ----------------
   const runtime = {
     services() {
@@ -606,6 +614,12 @@ export function apply(ctx) {
      * 只读，不压缩，不重建。返回 { uncachedInput, output, cacheRead, cacheWrite, cacheHitPct } 或 null。
      */
     async getSessionTokens(projectId) {
+      // v0.016.3：20 秒结果缓存。调度台面板每 8 秒轮询一次 project.metrics，
+      // 而这里每个会话都要 session.inspect + foldUsage 一遍（4.7M token 的会话线上实测 150ms），
+      // 等于面板一开着服务器就每 8 秒白烧一次主线程。token 是累计值，
+      // 20 秒的陈旧度对仪表盘完全没有影响（每分速率本来就是分钟级口径）。
+      const cached = tokenStatsCache.get(projectId)
+      if (cached && Date.now() - cached.at < TOKEN_STATS_TTL_MS) return cached.value
       const session = resolveService(ctx, 'sessionController')
       const projections = resolveService(ctx, 'sessionProjections')
       const sessions = resolveService(ctx, 'sessions')
@@ -640,14 +654,25 @@ export function apply(ctx) {
         }
       }
       const tokenNow = totals.uncachedInput + totals.cacheRead + totals.output
-      await store.tx((s) => {
-        if (!s.metrics) s.metrics = {}
-        const slot = s.metrics[projectId] || {}
-        const samples = Array.isArray(slot.samples) ? slot.samples : []
-        samples.push({ at: Date.now(), tokens: tokenNow, turns, steps })
-        if (samples.length > 120) samples.splice(0, samples.length - 120)
-        s.metrics[projectId] = { samples, startedAt: slot.startedAt || new Date().toISOString() }
-      }).catch(() => null)
+      // v0.016.3：采样落盘从「每次调用」改成「每分钟最多一次」。
+      // store.tx 会先把整份 state 深拷一份做回滚快照，再把 3MB 的热数据 pretty-print 落盘 ——
+      // 原来面板每 8 秒轮询一次就等于每 8 秒做一次这样的全量重写（线上 3MB/次），
+      // 主线程被占住，同一时刻进来的请求（包括打开面板本身）全在排队。
+      // 速率本来就是「最新采样 vs ≥1 分钟前的采样」，所以分钟级采样完全够用。
+      const prevSamples = (store.state.metrics && store.state.metrics[projectId] && Array.isArray(store.state.metrics[projectId].samples))
+        ? store.state.metrics[projectId].samples
+        : []
+      const lastSampleAt = prevSamples.length ? Number(prevSamples[prevSamples.length - 1].at) || 0 : 0
+      if (Date.now() - lastSampleAt >= 60 * 1000) {
+        await store.tx((s) => {
+          if (!s.metrics) s.metrics = {}
+          const slot = s.metrics[projectId] || {}
+          const samples = Array.isArray(slot.samples) ? slot.samples : []
+          samples.push({ at: Date.now(), tokens: tokenNow, turns, steps })
+          if (samples.length > 120) samples.splice(0, samples.length - 120)
+          s.metrics[projectId] = { samples, startedAt: slot.startedAt || new Date().toISOString() }
+        }).catch(() => null)
+      }
       const slot = (store.state.metrics || {})[projectId] || {}
       // 速率：最新采样 vs 至少 1 分钟前的采样（不足 1 分钟取最早一条）
       let perMinTokens = null
@@ -667,7 +692,7 @@ export function apply(ctx) {
       }
       const totalInput = totals.uncachedInput + totals.cacheRead
       const hitPct = totalInput > 0 ? Math.round(totals.cacheRead / totalInput * 100) : null
-      return {
+      const result = {
         available: canRead,
         ...totals,
         cacheHitPct: hitPct,
@@ -679,6 +704,8 @@ export function apply(ctx) {
         sessionsRead: readOk,
         sessionsTotal: ids.length,
       }
+      tokenStatsCache.set(projectId, { at: Date.now(), value: result })
+      return result
     },
 
     /**
@@ -1267,17 +1294,35 @@ let syncEngine = null
    * 3. `agent_sessions` 里记过 cwd 的绑定记录（只认未归档的）。
    *
    * 三道都拿不到才返回 null —— 宁可明确失败，也不瞎猜一个项目。
+   *
+   * v0.016.3：结果按 sessionId 缓存，因为这条路径就是"打开调度台要等好几秒"的来源。
+   * inspect 对**不在内存里的**会话要把整份会话文件读出来才能拿到 header：线上实测
+   * 冷会话 0.12s，最大的那个 7.26s；而调度台每次挂载都打一次 /api/flow/session-project，
+   * 面板开着还每 8 秒轮询一次 —— 于是每次打开/刷新都被这条 inspect 拖住，看到一块白屏。
+   * 会话的 cwd 在创建时就固定了、之后不会变，所以记住它是安全的：
+   *   · 命中（拿到 cwd）：缓存 30 分钟后复查一次（目录被搬走这种极端情况仍能纠正）；
+   *   · 没命中（新会话还没落盘）：只缓存 15 秒，别把同一条慢路径反复踩。
    */
+  const cwdCache = new Map()
+  const CWD_HIT_MS = 30 * 60 * 1000
+  const CWD_MISS_MS = 15 * 1000
+
   const sessionCwd = async (sessionId) => {
     const sid = String(sessionId || '').trim()
     if (!sid) return null
+    const cached = cwdCache.get(sid)
+    if (cached && Date.now() - cached.at < (cached.cwd ? CWD_HIT_MS : CWD_MISS_MS)) return cached.cwd
+    const remember = (cwd) => {
+      cwdCache.set(sid, { cwd: cwd || null, at: Date.now() })
+      return cwd || null
+    }
     const session = resolveService(ctx, 'sessionController')
     const inspect = session && typeof session.inspect === 'function' ? session.inspect.bind(session) : null
     if (inspect) {
       try {
         const info = await inspect(sid)
         const cwd = (info && info.meta && info.meta.cwd) || (info && info.cwd) || null
-        if (cwd) return cwd
+        if (cwd) return remember(cwd)
       } catch { /* 未落盘的新会话查不到，走下面的回落 */ }
     }
     // 第三层兜底：直接读持久化层的会话头（不依赖 sessionController 的方法签名）。
@@ -1288,13 +1333,13 @@ let syncEngine = null
       try {
         const snap = await persistence.stat(sid)
         const cwd = snap && snap.header && snap.header.cwd
-        if (cwd) return cwd
+        if (cwd) return remember(cwd)
       } catch { /* 没有持久化记录也正常 */ }
     }
     const rec = Object.values(store.state.agent_sessions || {})
       .filter((r) => r && r.sessionId === sid && r.cwd && r.state !== 'archived')
       .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0]
-    return (rec && rec.cwd) || null
+    return remember((rec && rec.cwd) || null)
   }
 
   /**

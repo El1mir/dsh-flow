@@ -447,4 +447,67 @@ assert.ok(drawerFlat.indexOf('回复') >= 0, '应当有提交回复按钮')
   const cfgPage = await drive({ sessionId: 'ses_chief' })
   assert.equal(findCards(cfgPage), 5, 'columnPageSize=5 时每页应为 5 张，实际 ' + findCards(cfgPage))
 }
+// ⑥ 空池子：抽屉必须能打开（v0.016.3 的线上事故）
+//
+// 症状：列表里没有「待我回」的工单时（只剩 info 通知，或一条都没有），
+// 点开 Inbox 整个调度台变空白。原因不是数据，是 renderInbox 里
+// mainEl 引用了已被删掉的 emptyEl —— `selected ? ... : emptyEl` 在 selected 为 null 时
+// 才求值，于是「有工单时永远测不出来」，一旦空了就 ReferenceError，
+// DSH 的 conversation.view slot 兜底把整块界面换掉。
+{
+  const onlyNotice = JSON.parse(JSON.stringify(VIEW))
+  onlyNotice.inbox = {
+    open: 0,
+    answered: 0,
+    items: [{
+      id: 'hi_notice1', projectId: 'prj_1', taskId: null, from: 'system:stall', lane: null,
+      kind: 'info', topic: '只是通知', body: '不需要你做决定', problem: '', decisionNeeded: '',
+      options: [], asks: [], blocks: [], readAt: null, replies: [],
+      status: 'open', createdAt: '2026-11-01T07:00:00.000Z', updatedAt: '2026-11-01T07:00:00.000Z',
+    }],
+  }
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url)
+    if (u.indexOf('/api/flow/action') >= 0) {
+      let action = ''
+      try { action = JSON.parse((opts && opts.body) || '{}').action || '' } catch (e) { action = '' }
+      if (action === 'inbox.list') {
+        const body = { result: { items: onlyNotice.inbox.items, counts: { open: 0, answered: 0, archived: 0, unread: 1, notices: 1 } } }
+        return { ok: true, status: 200, text: async () => JSON.stringify(body) }
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true } }) }
+    }
+    const body = u.indexOf('session-project') >= 0
+      ? { ok: true, projectId: 'prj_1', sessionId: 'ses_chief' }
+      : onlyNotice
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) }
+  }
+  FlowView = null
+  await import('../client.js?render-test=5')
+  reactHarness.reset()
+  registered.apply(ctx)
+  const baseTree = await drive({ sessionId: 'ses_chief' })
+  const emptyFabs = findFab(baseTree)
+  assert.ok(emptyFabs.length >= 1, '只有通知时也应出现 Inbox 浮标')
+  emptyFabs[0].props.onClick()
+  const emptyDrawer = await drive({ sessionId: 'ses_chief' })
+  const flatEmpty = JSON.stringify(emptyDrawer)
+  assert.ok(flatEmpty.indexOf('flowv-mail-empty') >= 0,
+    '右侧空状态占位必须渲染（缺了它就是整个视图崩掉的那条路径）')
+  assert.ok(findText(emptyDrawer).indexOf('这里没有内容') >= 0,
+    '空状态文案应出现在右栏，实际：' + findText(emptyDrawer).slice(0, 120))
+  assert.ok(flatEmpty.indexOf('Inbox') >= 0, '抽屉标题仍要渲染')
+  // 切到「通知」tab：那条 info 通知会变成选中项，右栏必须渲染通知正文。
+  // 这是 selected 非空 + isNotice 的路径（infoDetailEl）—— 与上面的空占位是同一次渲染里的两个分支。
+  const noticeTabs = nodeList(emptyDrawer, (n) => n.props && n.props.key === 'tab-notices')
+  assert.ok(noticeTabs.length >= 1, '「通知」tab 必须在树里（key=tab-notices）')
+  noticeTabs[0].props.onClick({ stopPropagation() {} })
+  const noticeDrawer = await drive({ sessionId: 'ses_chief' })
+  const noticeText = findText(noticeDrawer)
+  assert.ok(noticeText.indexOf('只是通知') >= 0,
+    '通知 tab 选中后右栏要显示这条通知，实际：' + noticeText.slice(0, 200))
+  assert.ok(JSON.stringify(noticeDrawer).indexOf('flowv-mail-row') >= 0, '通知 tab 列表里要有这一行')
+  assert.equal(JSON.stringify(noticeDrawer).indexOf('flowv-mail-empty'), -1,
+    '选中通知后右栏不该再是空占位')
+}
 console.log('client render: all checks passed')

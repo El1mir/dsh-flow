@@ -3370,6 +3370,16 @@ var silentRead = function (inboxId) {
                 })),
               h('div', { className: 'flowv-mail-foot' }, actsEl(x)))
           }
+          // 右侧没有选中项时的占位。
+          // v0.016.3 修：v0.013 把抽屉重写成消息流时把这个变量删了，但 mainEl 还在引用它。
+          // 表现是**只要这一屏没有可显示的工单**（列表为空、或只剩 info 通知被 tab 过滤掉），
+          // renderInbox 就抛 ReferenceError: emptyEl is not defined，
+          // 整个 conversation.view 被 DSH 的 slot 兜底成空白 —— 用户看到"点了收件箱，调度台整块没了"。
+          var emptyEl = h('div', { className: 'flowv-mail-empty' },
+            h('b', null, pool.length ? '左边选一条工单' : '这里没有内容'),
+            h('span', null, pool.length
+              ? '工单是逐条处理的：选中哪条，右边只显示哪条。'
+              : (tab === 'todo' ? '没有等你回的工单。' : '换个 tab 看看。')))
           var sideEl = h('aside', { className: 'flowv-mail-side' },
             h('div', { className: 'flowv-mail-side-hd' },
               h('b', null, 'Inbox'),

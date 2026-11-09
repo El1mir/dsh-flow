@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import http from 'node:http'
 import os from 'node:os'
 import { join } from 'node:path'
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { emptyState } from '../lib/core.js'
 
 const dir = mkdtempSync(join(os.tmpdir(), 'dsh-flow-e2e-'))
@@ -23,6 +23,8 @@ const { apply } = await import('../index.js')
 const routes = []
 const prompts = []
 const sessions = { ses_chat: { cwd: 'C:/work/alpha' }, ses_other: { cwd: 'C:/work/beta' } }
+// 每个会话被 inspect 了几次：读侧缓存的断言就靠它（v0.016.3）
+const inspectCount = {}
 const ctx = {
   tools: { register() {}, restrict() { return () => {} } },
   on() { return () => {} },
@@ -44,6 +46,9 @@ const ctx = {
           async list() { return { items: Object.entries(sessions).map(([sessionId, v]) => ({ sessionId, cwd: v.cwd, updatedAt: 1 })) } },
           async inspect(sessionId) {
             if (typeof sessionId !== 'string') throw new TypeError('inspect(sessionId): sessionId must be a string')
+            inspectCount[sessionId] = (inspectCount[sessionId] || 0) + 1
+            // 慢会话：模拟冷会话要把整份会话文件读出来（线上最大的那个 7.26s）
+            if ((sessions[sessionId] || {}).slow) await new Promise((r) => setTimeout(r, 150))
             return { meta: { cwd: (sessions[sessionId] || {}).cwd || null } }
           },
           async resolveAgent(sessionId) { return { agent: { session: { header: { id: sessionId } } } } },
@@ -165,6 +170,66 @@ try {
     assert.ok(Array.isArray(res.presets), 'presets 必须是数组')
   })
 
+
+  // ---- v0.016.3 读侧缓存：打开调度台不该反复读会话文件 ----------------------
+  //
+  // 线上症状：点「调度台」要等好几秒，最大的冷会话实测 7.26s。
+  // 根因是 /session-project 每次都 sessionController.inspect(整份会话文件)，
+  // 而面板每次挂载、以及开着的每 8 秒轮询，都会把这条路再走一遍。
+  await t('会话 cwd 第二次解析必须命中缓存（不再读会话文件）', async () => {
+    sessions.ses_cold = { cwd: 'C:/work/gamma', slow: true }
+    const t0 = Date.now()
+    const first = await api('GET', '/api/flow/session-project?sessionId=ses_cold')
+    const firstMs = Date.now() - t0
+    const t1 = Date.now()
+    const second = await api('GET', '/api/flow/session-project?sessionId=ses_cold')
+    const secondMs = Date.now() - t1
+    assert.equal(first.json.cwd, 'C:/work/gamma', '首次解析要拿到 cwd')
+    assert.equal(second.json.cwd, 'C:/work/gamma', '第二次解析结果要一致')
+    assert.equal(inspectCount.ses_cold, 1, '同一个会话只许 inspect 一次，实际 ' + inspectCount.ses_cold)
+    assert.ok(firstMs >= 80, '慢会话首次解析应当确实慢（证明载荷有效），实际 ' + firstMs + 'ms')
+    assert.ok(secondMs <= 40, '第二次必须是缓存命中（<=40ms），实际 ' + secondMs + 'ms')
+  })
+
+  // token 统计：面板每 8 秒打一次 project.metrics，每次都把所有会话 inspect 一遍，
+  // 4.7M token 的会话单次 150ms —— 面板开着就等于持续占着主线程。
+  await t('project.metrics 的 token 统计 20 秒内复用（不重复读会话）', async () => {
+    const view = await api('GET', '/api/flow/project?projectId=' + encodeURIComponent(projectId))
+    const firstAgent = (view.json.agents || [])[0]
+    assert.ok(firstAgent && firstAgent.id, '项目应带默认工位（要用它绑一个会话）')
+    const bound = await action('agent.session', { agentId: firstAgent.id })
+    assert.ok(bound && bound.sessionId, '工位绑定会话失败：' + JSON.stringify(bound))
+    const sid = bound.sessionId
+    const before = inspectCount[sid] || 0
+    const m1 = await api('POST', '/api/flow/action', { action: 'project.metrics', args: { projectId, withTokens: true } })
+    const mid = inspectCount[sid] || 0
+    const m2 = await api('POST', '/api/flow/action', { action: 'project.metrics', args: { projectId, withTokens: true } })
+    const after = inspectCount[sid] || 0
+    assert.equal((m1.json.result || {}).ok, true)
+    assert.equal((m2.json.result || {}).ok, true)
+    assert.ok(mid - before >= 1, '第一次 metrics 应当读一次刚绑定的会话，实际增量 ' + (mid - before))
+    assert.equal(after - mid, 0, '第二次 metrics 必须走 20 秒缓存，实际又读了 ' + (after - mid) + ' 次')
+    assert.ok(m1.json.result.tokens && m2.json.result.tokens, '两次都要带回 tokens')
+  })
+
+  // 采样落盘：store.tx 会深拷整份 state 再 pretty-print 落盘（线上 3MB），
+  // 原来面板每 8 秒轮询就触发一次全量重写 —— 现在每分钟最多一次。
+  await t('metrics 采样每分钟最多落盘一次（不再每 8 秒重写整份 state）', async () => {
+    const samplesOf = () => {
+      const raw = JSON.parse(readFileSync(dataFile, 'utf8'))
+      const slot = (raw.metrics || {})[projectId]
+      return Array.isArray(slot && slot.samples) ? slot.samples.length : 0
+    }
+    // 模拟面板开着一分钟：8 次轮询（真实是每 8 秒一次）。
+    // 两道闸一起保证「最多一条采样」：20 秒结果缓存挡住大部分，
+    // 真走到计算那一次，落盘节流再挡一层。
+    const n0 = samplesOf()
+    for (let i = 0; i < 8; i += 1) {
+      await api('POST', '/api/flow/action', { action: 'project.metrics', args: { projectId, withTokens: true } })
+    }
+    const n1 = samplesOf()
+    assert.ok(n1 - n0 <= 1, '一分钟 8 次轮询最多写 1 条采样，实际从 ' + n0 + ' 变成 ' + n1)
+  })
   const rm = await action('task.remove', { taskId: task.id })
   const rmProject = await action('project.remove', { projectId })
   await t('task.remove / project.remove 真实 HTTP 可用', () => {

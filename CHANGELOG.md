@@ -1,3 +1,24 @@
+## v0.016.3（package 0.0.19）：Inbox 不再白屏 + 打开调度台不再等会话文件
+
+两个症状，四个根因：一个前端崩溃（变量漏删）、一个计数口径错、两条读路径慢。
+
+- **Inbox 打开就白屏（前端）**：`renderInbox` 的 `mainEl` 引用 `emptyEl`，而 v0.013 把抽屉重写成消息流时把这个变量删了。
+  `selected ? detailEl(selected) : emptyEl` 只有**没有可显示工单**时才求值 —— 列表空、或只剩 info 通知被「待我回」过滤掉 ——
+  于是线上抛 `ReferenceError: emptyEl is not defined`，被 `conversation.view` 的 slot 兜底成整块空白，切 tab 也回不来，只能刷新页面。
+  补回定义（文案与 `.flowv-mail-empty` 样式都还在）。`test/render.mjs` ⑥ 用「只有一条通知」的真实形状钉住这条路（去掉该定义即报错）。
+- **「待我回 1」点开是空的（后端计数口径）**：`inbox.list` 的 `counts.open` 把 info/error 通知也算进去了，
+  而客户端的「待我回」列表会过滤掉通知 —— 于是计数说 1、列表一片空白，看起来就像收件箱坏了。
+  现在通知只计入 `notices`，`open` / `answered` 与两个 tab 的过滤规则同口径。`test/smoke.mjs` 钉住（一条通知 + 一条决策单 → open=1、notices=1）。
+- **打开调度台要等好几秒（后端）**：`/api/flow/session-project` 每次都 `sessionController.inspect(会话)` 读整份会话文件 ——
+  线上冷会话实测 0.12s，最大的那个 **7.26s**；面板每次挂载、以及开着的每 8 秒轮询都要走一遍。
+  加会话 cwd 内存缓存（命中 30 分钟复查，未命中 15 秒），cwd 在建会话时就定了、不会变。
+- **面板开着就一直烧主线程（后端）**：`project.metrics`（withTokens）每次 125–228ms（线上并发时 1.8s），因为 `getSessionTokens`
+  把所有会话 inspect + foldUsage 一遍；更贵的是它**每次调用都 `store.tx`** —— 深拷整份 state + 把 3MB 热数据 pretty-print 落盘。
+  现在：结果缓存 20 秒；采样落盘改成每分钟最多一次（速率本来就是分钟级口径）。
+- 断言落在 `test/e2e-view.mjs`（真实 HTTP + 慢会话桩，12 → 15 checks）：同一会话只许 inspect 一次、第二次必须命中缓存、
+  一分钟 8 次轮询最多写 1 条采样。关掉缓存即失败（已双向验证）。
+- 已知限制：① 会话 cwd 缓存是**进程内**的，dsh web 重启后第一次打开冷会话仍会慢一次（之后命中）；
+  ② `index.js` / `lib/` 的改动要重启 dsh web 才生效（宿主重跑 apply 但不重载已加载模块），`client.js` 刷新页面即生效。
 ## v0.016.2（package 0.0.18）：动作响应瘦身 + 已收口的卡不再显示「等待」
 
 - **动作响应不再附带整份 state**：线上实测一次 `inbox.list` 响应 682KB，其中 682KB 全是 `state`，

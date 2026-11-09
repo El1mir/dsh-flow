@@ -460,6 +460,20 @@ await t('POST /action 建任务', () => { assert.equal(createJson.ok, true); ass
 const lightRes = await handler(req('POST', '/api/flow/action', { action: 'inbox.list', args: {} }))
 const lightJson = await lightRes.json()
 await t('POST /action 默认不带 state（体积只够一个响应本身）', () => { assert.equal(lightJson.ok, true); assert.equal(lightJson.state, undefined) })
+// v0.016.3：tab 计数要和 tab 的过滤规则同口径 —— 通知不该算进「待我回」。
+// 线上就是「待我回 1」点开一片空白（唯一那条是 info 通知，列表把它过滤掉了）。
+const countProj = await domain.ensureProject({ workspacePath: join(dir, 'inbox-count'), name: 'inbox-count' })
+const countTask = await domain.createTask(countProj.id, { title: '计数口径', acceptance: ['x'] })
+await domain.askHuman({ taskId: countTask.id, kind: 'info', topic: '只是通知', body: '不需要你回' }, { role: 'dispatcher', id: 'ag_count_info' })
+await domain.askHuman({ taskId: countTask.id, kind: 'decision', topic: '要你定', problem: '有分歧', decisionNeeded: '选一个' }, { role: 'dispatcher', id: 'ag_count_dec' })
+const countRes = await handler(req('POST', '/api/flow/action', { action: 'inbox.list', args: { projectId: countProj.id } }))
+const countJson = await countRes.json()
+await t('v0.016.3 inbox.list 计数与 tab 过滤同口径（通知不算待我回）', () => {
+  const c = (countJson.result || countJson).counts || {}
+  assert.equal(c.open, 1, '待我回只算真正待人回应的工单，实际 ' + c.open)
+  assert.equal(c.notices, 1, '通知单独计数，实际 ' + c.notices)
+})
+
 
 const badRes = await handler(req('POST', '/api/flow/action', { action: 'task.move', args: { taskId: 'T-999', action: 'claim' } }))
 const badJson = await badRes.json()
