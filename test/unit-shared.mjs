@@ -201,8 +201,8 @@ const migrated = new Store(migFile)
 await migrated.load()
 
 await t('迁移 schema 14：有自己分支的子卡 → legacy-branch，无分支 → shared，普通卡不动', () => {
-  assert.equal(SCHEMA_VERSION, 15)
-  assert.equal(migrated.state.schemaVersion, 15)
+  assert.equal(SCHEMA_VERSION, 16)
+  assert.equal(migrated.state.schemaVersion, 16)
   assert.equal(migrated.state.tasks['T-902'].unitMode, 'legacy-branch')
   assert.equal(migrated.state.tasks['T-903'].unitMode, 'shared')
   assert.equal(migrated.state.tasks['T-904'].unitMode, 'shared', '共享投影的分支是父分支，不该判成交 legacy')

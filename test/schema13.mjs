@@ -26,11 +26,12 @@ async function t(name, fn) {
 }
 
 // ---- A：schema 常量与迁移表 --------------------------------------------------
-await t('SCHEMA_VERSION 是 15，且 MIGRATIONS[12..14] 都在', () => {
-  assert.equal(SCHEMA_VERSION, 15)
+await t('SCHEMA_VERSION 是 16，且 MIGRATIONS[12..15] 都在', () => {
+  assert.equal(SCHEMA_VERSION, 16)
   assert.equal(typeof MIGRATIONS[13], 'function', 'v0.008 的 unitMode 迁移要挂在 13 上')
   assert.equal(typeof MIGRATIONS[12], 'function')
   assert.equal(typeof MIGRATIONS[14], 'function', 'v0.012 的 blocks/readAt 迁移要挂在 14 上')
+  assert.equal(typeof MIGRATIONS[15], 'function', 'v0.016 的吞吐字段迁移要挂在 15 上')
 })
 
 // ---- B：迁移 12→13 只补字段 ------------------------------------------------
@@ -47,7 +48,7 @@ await t('schema 12→13：补 kind/visibility/external/branchFrom/integrationBra
   }))
   const st = new Store(f)
   await st.load()
-  assert.equal(st.state.schemaVersion, 15)
+  assert.equal(st.state.schemaVersion, 16)
   const t1 = st.state.tasks['T-1']
   assert.equal(t1.kind, 'card')
   assert.equal(t1.visibility, 'board')
@@ -180,6 +181,42 @@ await t('merge_into_parent：没有 parentId 的卡走不了这条路', () => {
 })
 
 console.log(NL + pass + ' 通过，' + fails.length + ' 失败')
+// ---- E：schema 15 → 16 的吞吐字段 ----------------------------------------
+await t('迁移 15：老卡补吞吐默认值、验收档位与 acceptance 下标对齐、幂等', async () => {
+  const f = join(dir, 'schema15.json')
+  writeFileSync(f, JSON.stringify({
+    schemaVersion: 15,
+    tasks: {
+      'T-1': { id: 'T-1', column: 'todo', acceptance: ['a', 'b'] },
+      'T-2': { id: 'T-2', column: 'done', acceptance: [] },
+    },
+    runs: { r1: { id: 'r1', startedAt: '2026-01-01T00:00:00.000Z' } },
+  }))
+  const st = new Store(f)
+  await st.load()
+  const one = st.state.tasks['T-1']
+  assert.equal(st.state.schemaVersion, 16)
+  assert.equal(one.partial, false)
+  assert.deepEqual(one.remainder, [])
+  assert.equal(one.noProgressRuns, 0)
+  assert.equal(one.infraAttempts, 0)
+  assert.equal(one.infraRetryAt, null)
+  assert.equal(one.envProbe, null)
+  assert.equal(one.handoff, null)
+  assert.deepEqual(one.dependsOnMeta, [])
+  assert.deepEqual(one.acceptanceKinds, ['auto', 'auto'], '与 acceptance 下标对齐')
+  assert.deepEqual(st.state.tasks['T-2'].acceptanceKinds, [])
+  const run = st.state.runs.r1
+  assert.equal(run.failure, null)
+  assert.equal(run.delivered, null)
+  assert.equal(run.lastProgressAt, '2026-01-01T00:00:00.000Z', '老 run 用开始时间兜底')
+
+  // 幂等：再跑一遍整条链，结果完全一致
+  const before = JSON.stringify(st.state.tasks)
+  const again = MIGRATIONS[15](JSON.parse(JSON.stringify(st.state)))
+  assert.equal(JSON.stringify(again.tasks), before)
+})
+
 if (fails.length) {
   for (const f of fails) console.log('- ' + f.name + ': ' + String((f.e && f.e.stack) || f.e).split(NL).slice(0, 3).join(NL))
   process.exit(1)

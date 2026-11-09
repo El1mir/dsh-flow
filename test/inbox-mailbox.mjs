@@ -102,7 +102,7 @@ await t('⑥ 归档：status=archived 且补 readAt', async () => {
 })
 
 await t('⑦ 迁移 14：补 blocks / readAt（归档视为已读），幂等', () => {
-  assert.equal(SCHEMA_VERSION, 15)
+  assert.equal(SCHEMA_VERSION, 16)
   const data = {
     schemaVersion: 14,
     human_inbox: [
