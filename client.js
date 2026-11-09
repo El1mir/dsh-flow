@@ -826,6 +826,7 @@ window.__ModuleLoader__.load({
       '.flowv-tk-src{flex:0 0 auto;font-size:10px;color:var(--dsw-alias-label-tertiary);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:0 6px;height:16px;line-height:15px}',
       '.flowv-tk-row.is-flagged .flowv-tk-src{color:var(--dsw-alias-state-business-primary,#4d6bfe);border-color:currentColor}',
       '.flowv-tk-chips{display:flex;flex-wrap:wrap;gap:5px}',
+ '.flowv-task-row2.is-wait{color:var(--dsw-alias-text-3)}',
       '.flowv-tk-chips code{font-size:11px;padding:1px 6px;border-radius:4px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2)}',
       '.flowv-tk-acc{margin:0;padding-left:18px}',
       '.flowv-tk-dep{border:1px solid var(--dsw-alias-border-l2);background:none;border-radius:5px;padding:1px 7px;font-size:11px;cursor:pointer;color:var(--dsw-alias-label-secondary);font-family:inherit}',
@@ -2159,11 +2160,12 @@ window.__ModuleLoader__.load({
         // v0.011：首屏只留六个「会让我立刻动手」的数字，其余收进折叠。
         // 十六个数字并排时人眼一个都不读 —— 密度不等于信息量。
         var stats = h('div', { className: 'flowv-stats' },
-          h(Stat, { val: String(mTotals.tasks), label: '任务' }),
-          h(Stat, { val: String(mTotals.running), label: '执行中', tone: mTotals.running > 0 ? 'ok' : '' }),
-          h(Stat, { val: String(mTotals.blocked), label: '阻塞', tone: mTotals.blocked > 0 ? 'bad' : '' }),
+          // v0.016：执行中只数「真有 run」的卡；等依赖/等分支/等人的卡单列 —— 65% 的空转第一次能看见。
+          h(Stat, { val: String(mTotals.running || 0), label: '执行中', tone: mTotals.running > 0 ? 'ok' : '' }),
+          h(Stat, { val: String(mTotals.waiting || 0), label: '等待', tone: (mTotals.waiting || 0) > 0 ? 'warn' : '' }),
+          h(Stat, { val: String(mTotals.blocked || 0), label: '阻塞', tone: mTotals.blocked > 0 ? 'bad' : '' }),
           h(Stat, { val: String(mTotals.verifying || 0), label: '待验收' }),
-          h(Stat, { val: String(inboxM.open || 0), label: '待答复', tone: (inboxM.open || 0) > 0 ? 'warn' : '' }),
+          h(Stat, { val: String(mTotals.pendingReply != null ? mTotals.pendingReply : (inboxM.open || 0)), label: '待答复', tone: ((mTotals.pendingReply || inboxM.open || 0) > 0) ? 'warn' : '' }),
           mTok && mTok.available
             ? h(Stat, { val: fmtTokens(mTok.uncachedInput + mTok.cacheRead + mTok.output), label: 'Token 总量',
                 title: '输入 ' + fmtTokens(mTok.uncachedInput) + ' · 缓存读 ' + fmtTokens(mTok.cacheRead) + ' · 缓存写 ' + fmtTokens(mTok.cacheWrite) + ' · 输出 ' + fmtTokens(mTok.output) })
@@ -2486,6 +2488,7 @@ window.__ModuleLoader__.load({
             row2Text = view.headline.text
             row2Class += view.headline.tone === 'bad' ? ' is-blocked' : ' is-progress'
           } else if (t.blocked) { row2Text = '⛔ ' + (t.blocked.reason || '阻塞'); row2Class += ' is-blocked' }
+          else if (view && view.waiting) { row2Text = '⋯ ' + view.waiting.text; row2Class += ' is-wait' }
           else if (pg && pg.blocker) { row2Text = '⛔ ' + pg.blocker; row2Class += ' is-blocked' }
           else if (pg && pg.next) { row2Text = '→ ' + pg.next; row2Class += ' is-progress' }
           else if (t.phase && !PHASE_REDUNDANT[t.column + '/' + t.phase]) { row2Text = PHASE_LABEL[t.phase] || t.phase; row2Class += ' is-progress' }
@@ -2585,6 +2588,9 @@ window.__ModuleLoader__.load({
           var label = all.length > size && list.length
             ? (offset + 1) + '-' + (offset + list.length) + '/' + all.length
             : String(col.count)
+          // v0.016（ticket 11）：列头写出「这列有几张在等」 —— 等依赖 / 等分支 / 等工人。
+          var waitInCol = all.filter(function (t) { return !t.activeRunId && !t.blocked && (col.id === 'running' || col.id === 'merging') }).length
+          if (waitInCol) label += ' · 等 ' + waitInCol
           return h('div', { className: colCls, key: col.id },
             h('button', {
               type: 'button',
