@@ -999,6 +999,7 @@ window.__ModuleLoader__.load({
       '.flowv-mail-row-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row.is-unread .flowv-mail-row-title{font-weight:700}',
       '.flowv-mail-row-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-mail-row-keep{font-size:9.5px;padding:0 4px;border-radius:4px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-state-business-primary)}',
       '.flowv-mail-main{display:flex;flex-direction:column;min-height:0;overflow:hidden}',
       '.flowv-mail-main-in{padding:14px 18px 30px}',
       '.flowv-mail-empty{margin:auto;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:12px;padding:40px}',
@@ -2614,7 +2615,8 @@ window.__ModuleLoader__.load({
           var want = opts || {}
           // 归档区要连已归档一起拉；其余视图默认不拉
           var includeArchived = want.includeArchived === true
-          setInbox(function (prev) { return Object.assign({ items: [], open: 0, answered: 0, loading: true, replying: null, draft: '', answers: {}, expanded: {}, threadOpen: {} }, prev || {}, includeArchived ? { includeArchived: true } : { includeArchived: false }) })
+          // 只置 loading，不把 items 清空：清空会让列表闪一下，且选中项在数据回来前无处可落。
+          setInbox(function (prev) { return Object.assign({}, prev || {}, { loading: true, replying: null, includeArchived: includeArchived }) })
           postAction('inbox.list', {
             projectId: v.project.id,
             includeArchived: includeArchived,
@@ -2704,11 +2706,15 @@ var silentRead = function (inboxId) {
           var q = inbox.q || ''
           var isNotice = function (x) { return x.kind === 'info' || x.kind === 'error' }
           var isActive = function (x) { return x.status !== 'archived' }
+          var keepId = inbox.keep || ''
           var pool = all.filter(function (x) {
             if (tab === 'archived') return !isActive(x)
             if (!isActive(x)) return false
             if (tab === 'notices') return isNotice(x)
             if (isNotice(x)) return false
+            // 刚回复的那一条：即便已经变成「已答复」，也留在当前 tab 里，
+            // 否则人一回信就被弹到另一张工单，读到一半的上下文当场丢掉。
+            if (x.id === keepId) return true
             return tab === 'todo' ? x.status === 'open' : x.status === 'answered'
           })
           var counts = inbox.counts || {}
@@ -2720,7 +2726,7 @@ var silentRead = function (inboxId) {
           }
           var selected = pool.filter(function (x) { return x.id === (inbox.sel || '') })[0] || pool[0] || null
           var select = function (x) {
-            setInbox(Object.assign({}, inbox, { sel: x.id, draft: '' }))
+            setInbox(Object.assign({}, inbox, { sel: x.id, draft: '', keep: keepId === x.id ? keepId : null }))
             // 选中即已读（列表上的未读点跟着消失）。只在第一次发，失败也不打扰人。
             if (!x.readAt && x.status !== 'archived' && !inboxReadSent[x.id]) {
               inboxReadSent[x.id] = true
@@ -2751,6 +2757,7 @@ var silentRead = function (inboxId) {
               'aria-pressed': on ? 'true' : 'false',
               onClick: function (e) {
                 e.stopPropagation()
+                setInbox(Object.assign({}, inbox, { tab: t.id, sel: null, keep: null }))
                 if (t.id === 'archived') refreshInbox({ includeArchived: true })
                 else refreshInbox({ includeArchived: false })
                 setInbox(Object.assign({}, inbox, { tab: t.id, sel: null }))
@@ -2785,7 +2792,7 @@ var silentRead = function (inboxId) {
                 h('div', { className: 'flowv-mail-row-meta' },
                   x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
                   asks.length ? h('span', null, answeredOf(x) + '/' + asks.length) : null,
-                  x.status === 'answered' ? h('span', null, '已回') : null,
+                  x.id === (inbox.keep || '') ? h('span', { className: 'flowv-mail-row-keep' }, '刚回复') : (x.status === 'answered' ? h('span', null, '已回') : null),
                   x.status === 'archived' ? h('span', null, '归档') : null)))
           }
 
@@ -3003,16 +3010,40 @@ var silentRead = function (inboxId) {
                 setNotice('已回复。' + (missing.length ? '还有 ' + missing.length + ' 项没答，调度会再问你。' : '已通知调度员在票里回复你。'))
                 var keep = Object.assign({}, inbox.answers || {})
                 delete keep[x.id]
+                // v0.013.1：回复完**留在这一条**。原来这里会 refreshInbox，工单变成「已答复」后被
+                // 当前 tab 过滤掉，选中项顺势落到下一条 —— 人刚写完一段话就被弹去看别的工单，
+                // 既丢了读的上下文，也不知道自己刚发的那条长什么样。
+                // 现在本地就地更新（不用等一次网络往返），并把 keep 记住：列表仍留着这一行、消息流仍停在这里。
+                var at = new Date().toISOString()
+                var items2 = (inbox.items || []).map(function (y) {
+                  if (y.id !== x.id) return y
+                  var prevReps = Array.isArray(y.replies) ? y.replies : []
+                  return Object.assign({}, y, {
+                    status: 'answered',
+                    readAt: y.readAt || at,
+                    updatedAt: at,
+                    replies: prevReps.concat([{
+                      id: 'local-' + at, at: at, by: 'human:web', role: 'human',
+                      content: content, blocks: blocks, answers: answers,
+                    }]),
+                  })
+                })
+                var c2 = Object.assign({}, inbox.counts || {})
+                if (typeof c2.open === 'number') c2.open = Math.max(0, c2.open - 1)
+                if (typeof c2.answered === 'number') c2.answered = c2.answered + 1
                 setInbox(Object.assign({}, inbox, {
-                  answers: keep, draft: '', quote: null, attach: null, attachOpen: false, attachDraft: '',
+                  answers: keep, draft: '', quote: null, attach: null, attachOpen: false, attachDraft: '', keep: null,
+                  items: items2, counts: c2, open: c2.open, answered: c2.answered,
+                  sel: x.id, keep: x.id,
                 }))
                 load()
-                refreshInbox({ includeArchived: inbox.tab === 'archived' })
                 // 发送后回到消息流底部：新的那条就在眼前，不用自己拖。
-                if (typeof document !== 'undefined' && document.querySelector) {
-                  var el = document.querySelector('.flowv-mail-stream')
-                  if (el) el.scrollTop = el.scrollHeight
-                }
+                setTimeout(function () {
+                  if (typeof document !== 'undefined' && document.querySelector) {
+                    var el = document.querySelector('.flowv-mail-stream')
+                    if (el) el.scrollTop = el.scrollHeight
+                  }
+                }, 0)
               })
             }
             var clearQuote = function (e) { if (e) e.stopPropagation(); setInbox(Object.assign({}, inbox, { quote: null })) }
