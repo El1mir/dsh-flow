@@ -4569,10 +4569,14 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
 
   await t('v1.36 巡检信号落历史：noteInspectionCycle 记最近 12 轮并给出结论', async () => {
     const id = (await domain.createTask(p35.id, { title: '巡检信号' })).id
-    for (let i = 0; i < 3; i += 1) await domain.noteInspectionCycle(id, { hasDiff: false, code: 'E_SAME' })
+    for (let i = 0; i < 2; i += 1) await domain.noteInspectionCycle(id, { hasDiff: false, code: 'E_SAME' })
+    // v0.015：两轮 no-diff 仍然是 steer（只在下一轮案卷里加提示）
+    assert.equal(store.state.tasks[id].inspectionSignals.verdict, 'steer')
+    await domain.noteInspectionCycle(id, { hasDiff: false, code: 'E_SAME' })
     const tk = store.state.tasks[id]
     assert.equal(tk.inspectHistory.length, 3)
-    assert.equal(tk.inspectionSignals.verdict, 'pause')
+    // v0.015：连续三轮 no-diff 升级为 block —— 缺的是环境/人给的东西，继续派工只会重复同一份报告。
+    assert.equal(tk.inspectionSignals.verdict, 'block')
     assert.ok(tk.inspectionSignals.signals.includes('no-diff'))
     // 巡检包/巡检结论里要能看到信号
     assert.match(domain.inspect(id).reasons.join(' '), /巡检信号/)
