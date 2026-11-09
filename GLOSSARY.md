@@ -94,3 +94,18 @@
 - **互斥（mutex）**：两张子卡的 `scope` 有重叠（路径前缀或符号名），或任一张没写 scope。互斥的子卡共用父检出，排队执行。
 - **并行（parallel）**：`scope` 不相交的子卡。各拿一条瞬时分枝与自己的检出，同时跑。
 - **瞬时分枝（scratch branch）**：`unit/<parentId>/<taskId>`。只为「第二个 HEAD」存在，验收后删掉，不开 PR、不进审核。
+
+## 2.9 三层密度（v0.011 起）
+
+**三层密度**（three-layer density）：同一个调度台按「一个问题一层」切成三层 —— 看板回答「哪儿卡住了」，
+抽屉回答「这张卡什么状态、我要做什么」，归档回答「系统整体健康吗」。一屏只摆当前这一层要用的东西。
+
+**徽标优先级**（badge order）：看板上最多两枚 chip 的固定顺序，由 `lib/view-model.js` 的 `BADGE_ORDER` 定义：
+blocked > merge-blocked > risk-high > grill-escalate > waiting-branch > merge-pending > delivery；
+lane / child 只进详情。溢出的收进 `+N`。
+
+**折叠摘要**（fold summary）：折叠块标题后面那句一行摘要。折叠的成本是「看不见」，摘要就是这笔成本的利息 ——
+没有摘要的折叠等于把信息藏起来。
+
+**常驻 / 折叠**（resident vs folded）：常驻 = 每次打开都要看的东西（结论条、当前进展、操作、停止调度按钮）；
+折叠 = 需要时才展开的东西（工作包八问、状态 kv、运行记录）。判断依据是「这一秒要不要用它做决定」。

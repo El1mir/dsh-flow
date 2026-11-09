@@ -418,6 +418,28 @@ window.__ModuleLoader__.load({
       '#dsh-flow-entry{display:none!important}',
       '.flowv{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;color:var(--dsw-alias-label-primary);font-family:var(--dsw-font-family,inherit);background:var(--dsw-alias-bg-base)}',
       '.flowv *{box-sizing:border-box}',
+      /* v0.011 视觉令牌：间距/字号/时长只在这里定义一次。
+         原来 4px/6px/12px 与 120ms/180ms 散落在几百条规则里，想整体收紧一档只能全局搜索替换。 */
+      '.flowv{--flowv-space-1:4px;--flowv-space-2:8px;--flowv-space-3:12px;--flowv-fs-xs:10.5px;--flowv-fs-sm:11.5px;--flowv-fs-md:12.5px;--flowv-t-fast:120ms;--flowv-t-med:180ms;--flowv-ease-drawer:cubic-bezier(.32,.72,0,1)}',
+      /* 折叠块：标题整行可点，折叠态**不渲染**子节点（一屏 15 块全渲染是主要的 DOM 成本）。
+         展开用 180ms 的淡入+下移 2px —— 不做高度动画：高度要测量 DOM，而测试里的 fake React 没有 DOM。 */
+      '.flowv-fold{border-top:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-fold:first-child{border-top:none}',
+      '.flowv-fold-head{display:flex;align-items:center;gap:6px;width:100%;padding:7px 0;background:none;border:0;color:var(--dsw-alias-label-secondary);font:inherit;font-size:var(--flowv-fs-md);font-weight:600;text-align:left;cursor:pointer;line-height:1.4}',
+      '.flowv-fold-head:hover{color:var(--dsw-alias-label-primary)}',
+      '.flowv-fold-head:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary,#4d6bfe);outline-offset:2px;border-radius:4px}',
+      '.flowv-fold-caret{flex:0 0 auto;width:9px;font-size:9px;color:var(--dsw-alias-label-tertiary);transition:transform var(--flowv-t-fast) var(--flowv-ease-out)}',
+      '.flowv-fold.is-open .flowv-fold-caret{transform:rotate(90deg)}',
+      '.flowv-fold-sum{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:400;font-size:var(--flowv-fs-xs);color:var(--dsw-alias-label-tertiary);text-align:right}',
+      '.flowv-fold-body{animation:flowv-fold-in var(--flowv-t-med) var(--flowv-ease-out) both}',
+      '@keyframes flowv-fold-in{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}',
+      '@media (prefers-reduced-motion: reduce){.flowv-fold-body{animation:none}.flowv-fold-caret{transition-duration:0ms}}',
+      /* 顶栏「更多」：低频且危险的动作收在这里，主操作与危险操作分开。 */
+      '.flowv-stats-more{flex:1 1 100%;border-top:1px solid var(--dsw-alias-border-l2);margin-top:4px}',
+      '.flowv-stats-all{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:6px 0 2px}',
+      '.flowv-menu{position:relative}',
+      '.flowv-menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:260;min-width:190px;padding:4px;border:1px solid var(--dsw-alias-border-l3);border-radius:10px;background:var(--dsw-alias-bg-module-platform);box-shadow:0 10px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:2px}',
+      '.flowv-menu-pop .flowv-btn{justify-content:flex-start;width:100%}',
 
       /* 顶栏 */
       '.flowv-head{display:flex;align-items:center;gap:8px;padding:7px 14px;border-bottom:1px solid var(--dsw-alias-border-l2);flex-wrap:wrap;position:sticky;top:0;background:var(--dsw-alias-bg-base);z-index:3}',
@@ -614,7 +636,34 @@ window.__ModuleLoader__.load({
 
 
       /* 车道：压成两条窄带，和统计条同一行；窄屏整行换下去 */
-      '.flowv-lanes{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1 1 480px;max-width:none}',
+      '.flowv-lanes{display:flex;flex-direction:column;gap:2px;flex:1 1 380px;max-width:none}',
+      // 收起态的宽度要压过 .flowv-col.has-tasks / .is-empty（同为两类的选择器，后写者赢）—— 所以两个都写。
+      '.flowv-col.has-tasks.is-collapsed,.flowv-col.is-empty.is-collapsed{flex:0 0 46px;min-width:46px;max-width:46px;overflow:hidden}',
+      '.flowv-col.is-collapsed .flowv-col-head{flex-direction:column;align-items:flex-start;gap:2px;padding:7px 6px;border-bottom:0;background:none;cursor:pointer}',
+      '.flowv-col-head{background:none;border:0;border-bottom:1px solid var(--dsw-alias-border-l2);font:inherit;color:inherit;cursor:pointer;text-align:left;width:100%}',
+      '.flowv-col-head:focus-visible{outline:2px solid var(--dsw-alias-state-info-primary,#2f6feb);outline-offset:-2px}',
+      '.flowv-task:focus-visible{outline:2px solid var(--dsw-alias-state-info-primary,#2f6feb);outline-offset:2px}',
+      '.flowv-task:active{transform:scale(.99)}',
+      '.flowv-drawer-lead{display:flex;align-items:center;gap:8px;padding:6px 10px;margin:6px 0 2px;border-radius:8px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);font-size:var(--flowv-fs-sm)}',
+      '.flowv-drawer-lead.is-bad{border-color:var(--dsw-alias-state-error-primary,#d9534f)}',
+      '.flowv-lead-col{flex:none;font-size:var(--flowv-fs-xs);color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
+      '.flowv-lead-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary)}',
+      '.flowv-card-fold>.flowv-fold-head{display:flex;align-items:center;gap:6px}',
+      '.flowv-fold-btn{display:flex;align-items:center;gap:6px;flex:1 1 auto;min-width:0;padding:0;border:0;background:none;cursor:pointer;text-align:left;color:inherit;font:inherit}',
+      '.flowv-fold-btn:focus-visible{outline:2px solid var(--dsw-alias-state-info-primary,#2f6feb);outline-offset:2px;border-radius:4px}',
+      '.flowv-fold-caret{display:inline-block;transition:transform var(--flowv-t-fast) var(--flowv-ease-out);color:var(--dsw-alias-label-tertiary);font-size:10px}',
+      '.flowv-card-fold.is-open .flowv-fold-caret,.flowv-fold.is-open .flowv-fold-caret{transform:rotate(90deg)}',
+      '.flowv-fold-sum{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--flowv-fs-xs);color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-fold-body{animation:flowv-fold-in 180ms var(--flowv-ease-out)}',
+      '@keyframes flowv-fold-in{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}',
+      '@media (prefers-reduced-motion: reduce){.flowv-fold-body{animation:none}.flowv-fold-caret{transition:none}}',
+      '.flowv-lane-row{display:flex;align-items:center;gap:8px;min-height:24px;font-size:var(--flowv-fs-sm)}',
+      '.flowv-lane-name{font-weight:600;color:var(--dsw-alias-label-primary)}',
+      '.flowv-lane-meta{font-size:var(--flowv-fs-xs);color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-lane-water{position:relative;width:64px;height:2px;border-radius:2px;background:var(--dsw-alias-border-l2);overflow:hidden}',
+      '.flowv-lane-water i{display:block;height:100%;background:var(--dsw-alias-label-secondary)}',
+      '.flowv-lane-water.warn i{background:var(--dsw-alias-state-warning-primary,#c98a00)}',
+      '.flowv-lane-water.bad i{background:var(--dsw-alias-state-error-primary,#d9534f)}',
       '@media(max-width:1180px){.flowv-lanes{flex-basis:100%;max-width:none}}',
       '.flowv-lane{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md,10px);padding:9px 12px 10px;background:var(--dsw-alias-bg-module-platform)}',
       '.flowv-lane-title{font-size:11.5px;color:var(--dsw-alias-label-secondary);display:flex;gap:6px;align-items:center;margin-bottom:5px;font-weight:500}',
@@ -1013,11 +1062,33 @@ window.__ModuleLoader__.load({
           onClick: props.disabled ? undefined : props.onClick,
         }, props.children)
       }
+      /**
+       * 卡片。带 fold 时整块可折叠（v0.011）：标题行变成按钮，折叠态不渲染正文。
+       *
+       * 为什么折在 Card 上而不是外面包一层：标题、计数（extra）本来就在卡片头部，
+       * 外面再包一层会出现两个标题；而且折叠后仍要看到「工作包 · 八问」这种摘要。
+       */
       var Card = function (props) {
-        return h('div', { className: 'flowv-card' },
-          props.title ? h('h6', null, props.title, props.extra || null) : null,
-          h('div', { className: 'flowv-card-bd' }, props.children),
-        )
+        if (!props.fold) {
+          return h('div', { className: 'flowv-card' },
+            props.title ? h('h6', null, props.title, props.extra || null) : null,
+            h('div', { className: 'flowv-card-bd' }, props.children),
+          )
+        }
+        var f = props.fold
+        return h('div', { className: 'flowv-card flowv-card-fold' + (f.open ? ' is-open' : '') },
+          h('div', { className: 'flowv-fold-head' },
+            h('button', {
+              type: 'button', className: 'flowv-fold-btn',
+              'aria-expanded': f.open ? 'true' : 'false',
+              title: f.open ? '收起这一块' : '展开这一块',
+              onClick: f.onToggle,
+            },
+              h('span', { className: 'flowv-fold-caret' }, '\u25B8'),
+              props.title ? h('h6', null, props.title) : null,
+              f.summary ? h('span', { className: 'flowv-fold-sum' }, f.summary) : null),
+            props.extra || null),
+          f.open ? h('div', { className: 'flowv-card-bd flowv-fold-body' }, props.children) : null)
       }
       var Modal = function (props) {
         // 弹窗是"偶发"面（一天开几次），够资格做完整进出场；
@@ -1033,6 +1104,29 @@ window.__ModuleLoader__.load({
             h('div', { className: 'flowv-modal-body' }, props.children),
             props.footer ? h('div', { className: 'flowv-modal-foot' }, props.footer) : null,
           ))
+      }
+
+      /**
+       * 折叠块（v0.011）。
+       *
+       * 为什么不用原生 <details>：折叠态必须**不渲染**子节点（一屏十几块全渲染是主要 DOM 成本），
+       * 而 details 的内容永远在树里；它的开合也没有任何过渡可挂。
+       * 为什么把 open 交给调用方：本组件保持纯展示，fake React（只有 useState）里也能测。
+       */
+      var Fold = function (props) {
+        var open = !!props.open
+        return h('div', { className: 'flowv-fold' + (open ? ' is-open' : '') },
+          h('button', {
+            type: 'button',
+            className: 'flowv-fold-head',
+            'aria-expanded': open ? 'true' : 'false',
+            title: props.titleTitle || '',
+            onClick: function () { if (props.onToggle) props.onToggle() },
+          },
+            h('span', { className: 'flowv-fold-caret' }, '\u25B8'),
+            h('span', null, props.title),
+            props.summary ? h('span', { className: 'flowv-fold-sum' }, props.summary) : null),
+          open ? h('div', { className: 'flowv-fold-body' }, props.children) : null)
       }
 
       /**
@@ -1399,7 +1493,11 @@ window.__ModuleLoader__.load({
         // 只显示最近进来的 N 张，底部"显示更多"再追加一页 —— 列里有 50 张卡时
         // 整页会被撑爆，而人真正关心的是最近进来的那几张。
         var colShownState = React.useState({})
+        // v0.011：列可以收起 —— 七列并排时，人真正在看的通常只有两三列。
+        var colCollapsedState = React.useState({})
         var colShown = colShownState[0]
+        var colCollapsed = colCollapsedState[0]
+        var setColCollapsed = colCollapsedState[1]
         var setColShown = colShownState[1]
 
         // v1.37：调度台顶部指标（token / 缓存命中率要异步从 DSH 会话读，所以单独存）
@@ -1484,6 +1582,26 @@ window.__ModuleLoader__.load({
         var drawerPresence = usePresence(sheets.length > 0, 220)
         var settings = settingsState[0]
         var setSettings = settingsState[1]
+
+        // v0.011：折叠态与顶栏菜单。和其它 hook 一样必须在四个 early return 之前。
+        // 键是 `区域:标识`（例 `drawer:T-049:status`），默认值由调用方传 —— 这样「哪些块默认展开」
+        // 是一条可读的规则，而不是每次渲染都重新算。
+        var foldState = React.useState({})
+        var folds = foldState[0]
+        var setFolds = foldState[1]
+        var foldOpen = function (key, def) {
+          return Object.prototype.hasOwnProperty.call(folds, key) ? !!folds[key] : !!def
+        }
+        var toggleFold = function (key, def) {
+          setFolds(function (prev) {
+            var next = Object.assign({}, prev)
+            next[key] = !(Object.prototype.hasOwnProperty.call(prev, key) ? !!prev[key] : !!def)
+            return next
+          })
+        }
+        var menuState = React.useState(false)
+        var menuOpen = menuState[0]
+        var setMenuOpen = menuState[1]
 
         // ---- 数据加载 ---------------------------------------------------------
         var load = React.useCallback(function () {
@@ -1753,40 +1871,30 @@ window.__ModuleLoader__.load({
         // 全局控制位（一键停止）。老服务端不返回 control，一律按"未停止"处理。
         var ctl = (st.view && st.view.control) || { halted: false, haltedAt: null, reason: null }
 
-        var head = h('div', { className: 'flowv-head' },
-          h('div', { className: 'flowv-name' }, project ? project.name : '调度台'),
-          project ? h('div', { className: 'flowv-path', title: project.path || '' }, project.path || '') : null,
-          h('div', { className: 'flowv-spacer' }),
-          st.degraded && caps.checked && !caps.bind ? h(Chip, { tone: 'warn', title: '服务端还是旧版本：需要重启 dsh web' }, '需重启后端') : null,
-          st.degraded && (!caps.checked || caps.bind) ? h(Chip, { tone: 'warn', title: '数据来自 /state 本地组装' }, '降级数据') : null,
-          // v1.4：工作区即项目，任意对话都能调度——不再有"绑定/解绑主调度"
-          project ? h(Chip, { tone: 'ok', title: '这个工作区就是这个项目；本对话可以直接调度' }, '工作区 = 项目') : null,
-          project ? h(Btn, { onClick: function () { setModal('new-task'); setDraft({ title: '', note: '', acceptance: '', priority: 'medium', lane: 'human' }) } }, '+ 新建任务') : null,
-          // 一次性把该有的工位会话备齐并标身份名（human调度1 / auto工人2 …）。
-          // 放在头部而不是埋在设置里：新项目第一件事就是它，藏起来等于没有。
-          project ? h(Btn, {
+        // v0.011：顶栏只留每天都要按的（新建任务 / 停止调度 / 设置），
+        // 初始化仓库、重建会话、手动同步都是低频且后果重的动作 —— 收进「更多」，
+        // 主操作与危险操作分开，误点的成本从「重建了所有会话」降到「多点一次」。
+        var moreItems = []
+        if (project) {
+        moreItems.push(h(Btn, {
             disabled: busy === 'project.init',
             title: '给每个工位建一个带身份名的会话，并把漂在 worktree 里的旧会话收回当前工作区（可反复点）',
             onClick: function () {
               act('project.init', { projectId: project.id }).then(function (res) {
                 if (!res) return
                 var lines = [res.message || '已初始化']
-                // 环境自检配了什么、为什么配，逐条说清楚——不让人猜配置自己变没变。
                 var notes = res.setupNotes || []
                 if (notes.length) lines.push('环境：' + notes.join('；'))
                 var names = (res.created || []).concat(res.moved || []).map(function (x) { return x.name }).filter(Boolean)
                 if (names.length) lines.push('备好的会话：' + names.join('、'))
                 if ((res.attached || []).length) lines.push('补挂回工作区：' + res.attached.map(function (x) { return x.name }).filter(Boolean).join('、'))
                 if ((res.failed || []).length) lines.push('失败：' + res.failed.map(function (x) { return (x.name || x.agentId) + '（' + (x.message || '未知原因') + '）' }).join('；'))
-                // DSH 只显示「当前打开的那一个空会话」，其余 blank 会话不进侧栏——这不是没建出来。
-                // 与其让人以为初始化没生效，不如把出口写清楚。
                 lines.push('这些会话还没对话过，侧栏只会显示当前打开的那一个；在「设置 → 代理」点「打开会话」即可让它出现。')
                 setNotice(lines.join(SEP))
               })
             },
-          }, busy === 'project.init' ? '初始化中…' : '初始化仓库') : null,
-          // 会话乱成一团时的出口：把这一轮的历史会话全部归档，再干干净净建一套。
-          project ? h(Btn, {
+          }, busy === 'project.init' ? '初始化中…' : '初始化仓库'))
+        moreItems.push(h(Btn, {
             disabled: busy === 'project.reset',
             title: '归档当前所有工位会话并重新建一套（用于清理「未分组」里的孤儿会话）',
             onClick: function () {
@@ -1802,20 +1910,14 @@ window.__ModuleLoader__.load({
                 setNotice(lines.join(SEP))
               })
             },
-          }, busy === 'project.reset' ? '重建中…' : '清理并重建会话') : null,
-          // v1.21：手动拉一次远程 issue。平时 15s 自动同步一次，这个按钮是「我现在就要看见」的出口
-          // （也用来验证同步链路到底通没通——同步失败会把原因写进提示条）。
-          project && project.config && project.config.recordIssues ? h(Btn, {
+          }, busy === 'project.reset' ? '重建中…' : '清理并重建会话'))
+          if (project.config && project.config.recordIssues) {
+        moreItems.push(h(Btn, {
             disabled: busy === 'event.sync',
             title: '立刻拉一次远程 issue/PR（平时 15s 自动同步一次）',
             onClick: function () {
-              // v1.29：同步失败必须**显眼**。
-              // 注意 postAction 在 ok:false 时是 throw，所以失败走不到 .then —— 必须在 catch 里处理，
-              // 否则界面永远显示「同步完成」。线上 403 限流就是这样被藏了好几天。
               act('event.sync', { projectId: project.id }).then(function (res) {
                 if (!res) return
-                // 而失败的形状是 { ok:false, reason }，于是提示条显示的是「同步完成：新增 0 …」——
-                // 线上就这样把 403 限流藏了好几天（sync.applied 里 errors:0，界面说一切正常）。
                 if (res.ok === false) {
                   var why = res.reason || res.skipped || '未知原因'
                   var extra = []
@@ -1844,7 +1946,33 @@ window.__ModuleLoader__.load({
                 load()
               })
             },
-          }, busy === 'event.sync' ? '同步中…' : '同步 issue') : null,
+          }, busy === 'event.sync' ? '同步中…' : '同步 issue'))
+          }
+        }
+        var moreMenu = h('div', { className: 'flowv-menu' },
+          h('button', {
+            type: 'button',
+            className: 'flowv-btn' + (menuOpen ? ' is-on' : ''),
+            'aria-haspopup': 'true',
+            'aria-expanded': menuOpen ? 'true' : 'false',
+            title: '初始化仓库 / 重建会话 / 手动同步',
+            onClick: function () { setMenuOpen(function (prev) { return !prev }) },
+          }, '更多 ' + '\u25BE'),
+          menuOpen ? h('div', { className: 'flowv-menu-pop' }, moreItems) : null)
+
+        var head = h('div', { className: 'flowv-head' },
+          h('div', { className: 'flowv-name' }, project ? project.name : '调度台'),
+          project ? h('div', { className: 'flowv-path', title: project.path || '' }, project.path || '') : null,
+          h('div', { className: 'flowv-spacer' }),
+          st.degraded && caps.checked && !caps.bind ? h(Chip, { tone: 'warn', title: '服务端还是旧版本：需要重启 dsh web' }, '需重启后端') : null,
+          st.degraded && (!caps.checked || caps.bind) ? h(Chip, { tone: 'warn', title: '数据来自 /state 本地组装' }, '降级数据') : null,
+          // v1.4：工作区即项目，任意对话都能调度——不再有"绑定/解绑主调度"
+          project ? h(Chip, { tone: 'ok', title: '这个工作区就是这个项目；本对话可以直接调度' }, '工作区 = 项目') : null,
+          project ? h(Btn, { onClick: function () { setModal('new-task'); setDraft({ title: '', note: '', acceptance: '', priority: 'medium', lane: 'human' }) } }, '+ 新建任务') : null,
+          project && moreItems.length ? moreMenu : null,
+
+
+
           // v1.24 一键停止：控制位是进程级开关，所以按钮常驻（不跟 recordIssues 走）。
           // 停下来之后这一颗变成"恢复调度"——同一个位置，避免停下后找不到出口。
           h(Btn, {
@@ -1909,66 +2037,77 @@ window.__ModuleLoader__.load({
         var msgM = mTotals.messages || {}
         var Stat = function (p) { return h('div', { className: 'flowv-stat' + (p.tone ? ' is-'+p.tone : ''), title: p.title || '' }, h('b', null, p.val), h('span', null, p.label)) }
         var Sep = function () { return h('div', { className: 'flowv-stats-sep' }) }
+        // v0.011：首屏只留六个「会让我立刻动手」的数字，其余收进折叠。
+        // 十六个数字并排时人眼一个都不读 —— 密度不等于信息量。
         var stats = h('div', { className: 'flowv-stats' },
-          // —— 任务 ——
           h(Stat, { val: String(mTotals.tasks), label: '任务' }),
           h(Stat, { val: String(mTotals.running), label: '执行中', tone: mTotals.running > 0 ? 'ok' : '' }),
           h(Stat, { val: String(mTotals.blocked), label: '阻塞', tone: mTotals.blocked > 0 ? 'bad' : '' }),
           h(Stat, { val: String(mTotals.verifying || 0), label: '待验收' }),
-          h(Sep),
-          // —— 会话 ——
-          h(Stat, { val: String(sess.active || 0), label: '活跃会话', tone: (sess.active || 0) > 0 ? 'ok' : '' }),
-          h(Stat, { val: String(sess.idle || 0), label: '空闲' }),
-          h(Stat, { val: String(sess.total || agents.length), label: '对话数' }),
-          h(Sep),
-          // —— Inbox ——
           h(Stat, { val: String(inboxM.open || 0), label: '待答复', tone: (inboxM.open || 0) > 0 ? 'warn' : '' }),
-          h(Stat, { val: String(inboxM.answered || 0), label: '待调度确认' }),
-          h(Sep),
-          // —— Token / 缓存（DSH 原生统计） ——
           mTok && mTok.available
             ? h(Stat, { val: fmtTokens(mTok.uncachedInput + mTok.cacheRead + mTok.output), label: 'Token 总量',
                 title: '输入 ' + fmtTokens(mTok.uncachedInput) + ' · 缓存读 ' + fmtTokens(mTok.cacheRead) + ' · 缓存写 ' + fmtTokens(mTok.cacheWrite) + ' · 输出 ' + fmtTokens(mTok.output) })
             : h('div', { className: 'flowv-stat', title: 'DSH 没有暴露 tokenMeter / sessionController，读不到 token 统计' }, h('b', null, '不可用'), h('span', null, 'Token')),
-          mTok && mTok.cacheHitPct !== null && mTok.cacheHitPct !== undefined
-            ? h(Stat, { val: mTok.cacheHitPct + '%', label: '缓存命中率', tone: mTok.cacheHitPct >= 50 ? 'ok' : 'warn',
-                title: 'cacheRead ÷ (未缓存输入 + cacheRead)' })
-            : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '缓存命中率')),
-          mTok && mTok.perMinTokens !== null && mTok.perMinTokens !== undefined
-            ? h(Stat, { val: fmtTokens(mTok.perMinTokens), label: 'Token/分' })
-            : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, 'Token/分')),
-          h(Sep),
-          // —— 轮数 / 步数 ——
-          mTok
-            ? h(Stat, { val: String(mTok.turns || 0), label: '总轮数', title: mTok.since ? '本次插件启动后累计（起算 ' + dayTime(mTok.since) + '，之前的历史不计入）' : '' })
-            : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '总轮数')),
-          mTok
-            ? h(Stat, { val: String(mTok.steps || 0), label: '总步数', title: mTok.since ? '本次插件启动后累计（起算 ' + dayTime(mTok.since) + '）' : '' })
-            : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '总步数')),
-          mTok && mTok.perMinSteps !== null && mTok.perMinSteps !== undefined
-            ? h(Stat, { val: String(mTok.perMinSteps), label: '步/分' })
-            : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '步/分')),
-          h(Sep),
-          // —— 消息流量 ——
-          h(Stat, { val: String(msgM.total || 0), label: '投递数' }),
-          h(Stat, { val: String(msgM.recent5 || 0), label: '近5分' }),
+          h('div', { className: 'flowv-stats-more' },
+            h(Fold, {
+              id: 'stats:all',
+              title: '全部统计',
+              summary: '会话 · 缓存 · 轮步 · 流量',
+              open: foldOpen('stats:all', false),
+              onToggle: function () { toggleFold('stats:all', false) },
+            },
+              h('div', { className: 'flowv-stats-all' },
+                // —— 会话 ——
+                h(Stat, { val: String(sess.active || 0), label: '活跃会话', tone: (sess.active || 0) > 0 ? 'ok' : '' }),
+                h(Stat, { val: String(sess.idle || 0), label: '空闲' }),
+                h(Stat, { val: String(sess.total || agents.length), label: '对话数' }),
+                h(Sep),
+                // —— Inbox ——
+                h(Stat, { val: String(inboxM.answered || 0), label: '待调度确认' }),
+                h(Sep),
+                // —— Token / 缓存 ——
+                mTok && mTok.cacheHitPct !== null && mTok.cacheHitPct !== undefined
+                  ? h(Stat, { val: mTok.cacheHitPct + '%', label: '缓存命中率', tone: mTok.cacheHitPct >= 50 ? 'ok' : 'warn', title: 'cacheRead ÷ (未缓存输入 + cacheRead)' })
+                  : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '缓存命中率')),
+                mTok && mTok.perMinTokens !== null && mTok.perMinTokens !== undefined
+                  ? h(Stat, { val: fmtTokens(mTok.perMinTokens), label: 'Token/分' })
+                  : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, 'Token/分')),
+                h(Sep),
+                // —— 轮数 / 步数 ——
+                mTok
+                  ? h(Stat, { val: String(mTok.turns || 0), label: '总轮数', title: mTok.since ? '本次插件启动后累计（起算 ' + dayTime(mTok.since) + '，之前的历史不计入）' : '' })
+                  : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '总轮数')),
+                mTok
+                  ? h(Stat, { val: String(mTok.steps || 0), label: '总步数', title: mTok.since ? '本次插件启动后累计（起算 ' + dayTime(mTok.since) + '）' : '' })
+                  : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '总步数')),
+                mTok && mTok.perMinSteps !== null && mTok.perMinSteps !== undefined
+                  ? h(Stat, { val: String(mTok.perMinSteps), label: '步/分' })
+                  : h('div', { className: 'flowv-stat' }, h('b', null, '—'), h('span', null, '步/分')),
+                h(Sep),
+                // —— 消息流量 ——
+                h(Stat, { val: String(msgM.total || 0), label: '投递数' }),
+                h(Stat, { val: String(msgM.recent5 || 0), label: '近5分' }),
+              )),
+          ),
         )
 
         // ---- 渲染：车道 -------------------------------------------------------
-        var laneCard = function (lane) {
-          return h('div', { className: 'flowv-lane', key: lane.lane },
-            h('div', { className: 'flowv-lane-title' },
-              lane.lane === 'issue' ? 'issue 自动' : '人直派',
-              h(Chip, null, '调度 ' + lane.dispatchers),
-              h(Chip, null, '工人 ' + lane.workers)),
-            h('div', { style: { display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 6 } },
-              h(Chip, { tone: lane.running ? 'ok' : '' }, '在跑 ' + lane.running),
-              h(Chip, { tone: lane.blocked ? 'bad' : '' }, '阻塞 ' + lane.blocked),
-              lane.waitingWorker ? h(Chip, { tone: 'warn' }, '缺工位 ' + lane.waitingWorker) : null,
-              lane.waitingSupervisor ? h(Chip, { tone: 'warn' }, '缺调度 ' + lane.waitingSupervisor) : null),
-            h('div', { className: 'flowv-meter' },
-              h('div', { className: 'flowv-meter-row' }, h('span', null, '上下文水位'), h('b', null, pct(lane.budget.max))),
-              h('div', { className: 'flowv-bar ' + ratioClass(lane.budget.max) }, h('i', { style: { width: pct(lane.budget.max) } }))))
+        // v0.011：两张车道卡并成一行分段 —— 车道是「谁在干活」的概览，不是一张要读的卡。
+        // 水位条只在超过 70% 时出现：正常水位不需要占像素，快满了才值得提醒。
+        var laneRow = function (lane) {
+          var busy = lane.running || 0
+          var ratio = Number(lane.budget && lane.budget.max) || 0
+          var hint = lane.waitingWorker ? '缺工位 ' + lane.waitingWorker : (lane.waitingSupervisor ? '缺调度 ' + lane.waitingSupervisor : '')
+          return h('div', { className: 'flowv-lane-row', key: lane.lane },
+            h('span', { className: 'flowv-lane-name' }, lane.lane === 'issue' ? 'issue 自动' : '人直派'),
+            h('span', { className: 'flowv-lane-meta' }, lane.dispatchers + ' 调度 / ' + lane.workers + ' 工人'),
+            busy ? h(Chip, { tone: 'ok' }, '在跑 ' + busy) : null,
+            lane.blocked ? h(Chip, { tone: 'bad' }, '阻塞 ' + lane.blocked) : null,
+            hint ? h(Chip, { tone: 'warn' }, hint) : null,
+            ratio > 0.7
+              ? h('span', { className: 'flowv-lane-water ' + ratioClass(ratio), title: '上下文水位 ' + pct(ratio) }, h('i', { style: { width: pct(ratio) } }))
+              : null)
         }
 
         // ---- 渲染：看板 -------------------------------------------------------
@@ -2191,33 +2330,41 @@ window.__ModuleLoader__.load({
           var dotClass = 'flowv-task-dot ' + (pgState || 'none')
           var timeStr = fmtTime(t.lastActivityAt || t.updatedAt)
           // ── 行2：标题（保留高优先标签紧靠卡号）
+          // v0.011：徽标优先级与「只把最要紧的一枚说出来」下沉到 lib/view-model.js（服务端算好）。
+          // 这里只负责画：最多 2 枚 + 溢出计数。六枚并排时每张卡都像告警，等于没有告警。
+          var view = t.view || null
           var sideBadges = []
-          if (t.lane === 'issue') sideBadges.push(h(Chip, { key: 'lane' }, 'issue'))
-          // ADR-0005：合并受阻是**故障**，必须一直在看板上显形 —— 以前 noMerge 根本不在
-          // sideBadges 里，T-012/T-043 这种"合不了"和"本来不用合"长得一模一样。
-          // pending 也给一个（"排队等合并"是会被问"怎么还没 done"的状态）；none / ready 不出。
-          var mergeBadge = mergeBadgeOf(t)
-          if (mergeBadge) sideBadges.push(h(Chip, { key: 'merge', tone: mergeBadge.tone, title: mergeBadge.title }, mergeBadge.text))
-          // C-03：交付态。done 的卡有四种落点，只有 phase=merged 真的进了基线；
-          // 另外三种不声不响地挂在「完成」列里，就是 T-036/T-042 那种假完成。
-          var deliveryBadge = deliveryBadgeOf(t)
-          if (deliveryBadge) sideBadges.push(h(Chip, { key: 'delivery', tone: deliveryBadge.tone, title: deliveryBadge.title }, deliveryBadge.text))
-          if (t.risk && t.risk.level === 'high') sideBadges.push(h(Chip, { key: 'risk', tone: 'bad', title: (t.risk.reasons || []).join('；') }, '⚡高风险'))
-          if (t.reopenRequested) sideBadges.push(h(Chip, { key: 'rrq', tone: 'warn', title: '申请重开：' + t.reopenRequested.reason }, '重开申请'))
-          // v1.39：父卡的子任务进度（子卡本身不上看板，只在父卡详情里看和打开）
-          if (t.childProgress) {
-            var cp = t.childProgress
-            sideBadges.push(h(Chip, {
-              key: 'kids',
-              tone: cp.done >= cp.total ? 'ok' : 'info',
-              title: '子任务 ' + cp.done + '/' + cp.total + ' 完成（子卡在详情里打开）',
-            }, '子任务 ' + cp.done + '/' + cp.total))
+          if (view && Array.isArray(view.chips)) {
+            for (var bi = 0; bi < view.chips.length; bi += 1) {
+              var cb = view.chips[bi] || {}
+              sideBadges.push(h(Chip, { key: cb.key || ('b' + bi), tone: cb.tone, title: cb.title || '' }, cb.text))
+            }
+            if (view.more) {
+              sideBadges.push(h(Chip, { key: 'more', tone: 'info', title: '还有 ' + view.more + ' 项状态，点开详情看全' }, '+' + view.more))
+            }
+          } else {
+            // 老服务端（没有 view 字段）走原来的路径：升级窗口里不能因为少一个字段就少一堆状态。
+            if (t.lane === 'issue') sideBadges.push(h(Chip, { key: 'lane' }, 'issue'))
+            var mergeBadge = mergeBadgeOf(t)
+            if (mergeBadge) sideBadges.push(h(Chip, { key: 'merge', tone: mergeBadge.tone, title: mergeBadge.title }, mergeBadge.text))
+            var deliveryBadge = deliveryBadgeOf(t)
+            if (deliveryBadge) sideBadges.push(h(Chip, { key: 'delivery', tone: deliveryBadge.tone, title: deliveryBadge.title }, deliveryBadge.text))
+            if (t.risk && t.risk.level === 'high') sideBadges.push(h(Chip, { key: 'risk', tone: 'bad', title: (t.risk.reasons || []).join('；') }, '高风险'))
+            if (t.reopenRequested) sideBadges.push(h(Chip, { key: 'rrq', tone: 'warn', title: '申请重开：' + t.reopenRequested.reason }, '重开申请'))
+            if (t.childProgress) {
+              var cp = t.childProgress
+              sideBadges.push(h(Chip, { key: 'kids', tone: cp.done >= cp.total ? 'ok' : 'info', title: '子任务 ' + cp.done + '/' + cp.total + ' 完成（子卡在详情里打开）' }, '子任务 ' + cp.done + '/' + cp.total))
+            }
+            if (t.grill && t.grill.status === 'running') sideBadges.push(h(Chip, { key: 'grill', tone: 'info', title: '需求评审第 ' + t.grill.rounds + '/' + t.grill.maxRounds + ' 轮' }, '评审中'))
+            if (t.grill && t.grill.verdict === 'escalate') sideBadges.push(h(Chip, { key: 'grillx', tone: 'warn', title: '有 ' + (t.grill.openForHuman || []).length + ' 个问题等你定' }, '评审待定'))
           }
-          if (t.grill && t.grill.status === 'running') sideBadges.push(h(Chip, { key: 'grill', tone: 'info', title: '需求评审第 ' + t.grill.rounds + '/' + t.grill.maxRounds + ' 轮' }, '评审中'))
-          if (t.grill && t.grill.verdict === 'escalate') sideBadges.push(h(Chip, { key: 'grillx', tone: 'warn', title: '有 ' + (t.grill.openForHuman || []).length + ' 项需要人决定' }, '待人决定'))
           // ── 行3：阻塞点 > next > phase（降优先级后移至此）
           var row2Text = null, row2Class = 'flowv-task-row2'
-          if (t.blocked) { row2Text = '⛔ ' + (t.blocked.reason || '阻塞'); row2Class += ' is-blocked' }
+          // 一句话现状由服务端算（blocked > blocker > next > 阶段），看板不再各自排优先级。
+          if (view && view.headline && view.headline.text) {
+            row2Text = view.headline.text
+            row2Class += view.headline.tone === 'bad' ? ' is-blocked' : ' is-progress'
+          } else if (t.blocked) { row2Text = '⛔ ' + (t.blocked.reason || '阻塞'); row2Class += ' is-blocked' }
           else if (pg && pg.blocker) { row2Text = '⛔ ' + pg.blocker; row2Class += ' is-blocked' }
           else if (pg && pg.next) { row2Text = '→ ' + pg.next; row2Class += ' is-progress' }
           else if (t.phase && !PHASE_REDUNDANT[t.column + '/' + t.phase]) { row2Text = PHASE_LABEL[t.phase] || t.phase; row2Class += ' is-progress' }
@@ -2309,16 +2456,30 @@ window.__ModuleLoader__.load({
                 onClick: goPage(size),
               }, '↓ 更早 ' + Math.min(size, olderCount) + ' 张')
             : null
+          var collapsed = colCollapsed[col.id] === true
           var colCls = 'flowv-col' + (list.length ? ' has-tasks' : ' is-empty') +
-            (col.id === 'running' ? ' is-running' : (col.id === 'done' || col.id === 'cancelled') ? ' is-terminal' : '')
+            (col.id === 'running' ? ' is-running' : (col.id === 'done' || col.id === 'cancelled') ? ' is-terminal' : '') +
+            (collapsed ? ' is-collapsed' : '')
           // 列头计数显示"翻到第几张/共几张"，翻页时能看出自己在哪
           var label = all.length > size && list.length
             ? (offset + 1) + '-' + (offset + list.length) + '/' + all.length
             : String(col.count)
           return h('div', { className: colCls, key: col.id },
-            h('div', { className: 'flowv-col-head', title: COLUMN_HINTS[col.id] || '' },
-              h('span', null, col.title), h('b', null, label)),
-            h('div', { className: 'flowv-col-body' },
+            h('button', {
+              type: 'button',
+              className: 'flowv-col-head',
+              title: (collapsed ? '展开这一列' : '收起这一列') + (COLUMN_HINTS[col.id] ? ' · ' + COLUMN_HINTS[col.id] : ''),
+              'aria-expanded': collapsed ? 'false' : 'true',
+              onClick: function () {
+                setColCollapsed(function (prev) {
+                  var next = Object.assign({}, prev)
+                  if (next[col.id]) delete next[col.id]; else next[col.id] = true
+                  return next
+                })
+              },
+            },
+              h('span', null, collapsed ? '▸ ' + col.title : col.title), h('b', null, label)),
+            collapsed ? null : h('div', { className: 'flowv-col-body' },
               newerBtn,
               list.length ? list.map(boardCard)
                 : h('div', { className: 'flowv-col-hint' }, COLUMN_HINTS[col.id] || ''),
@@ -2847,6 +3008,33 @@ window.__ModuleLoader__.load({
             return h('dl', { className: 'flowv-kv' }, items)
           }
 
+          // v0.011：抽屉里默认只开「现在要决定的」四块，其余折叠但带摘要。
+          // 摘要不是装饰：折叠后如果只剩一个标题，人就失去「要不要展开」的判断依据。
+          var cardFold = function (key, summary, defaultOpen) {
+            var k = 'drawer:' + task.id + ':' + key
+            var vf = (task.view && task.view.folds) || null
+            var def = vf && typeof vf[key] === 'boolean' ? vf[key] : defaultOpen === true
+            return {
+              open: foldOpen(k, def),
+              onToggle: function (e) { if (e) e.stopPropagation(); toggleFold(k, def) },
+              summary: summary || '',
+            }
+          }
+          var colLabel = COLUMN_TITLES[task.blocked ? 'blocked' : task.column] || task.column
+          var leadHeadline = (task.view && task.view.headline && task.view.headline.text) || null
+          if (!leadHeadline) {
+            leadHeadline = task.blocked ? '⛔ ' + (task.blocked.reason || '阻塞')
+              : (task.progress && task.progress.summary) ? task.progress.summary
+              : (PHASE_LABEL[task.phase] || task.phase || '')
+          }
+          var leadTone = (task.view && task.view.headline && task.view.headline.tone) || (task.blocked ? 'bad' : 'info')
+          var primaryAction = actionsFor(task)[0] || null
+          var leadEl = h('div', { className: 'flowv-drawer-lead' + (leadTone === 'bad' ? ' is-bad' : '') },
+            h('span', { className: 'flowv-lead-col' }, colLabel + (task.phase ? ' · ' + task.phase : '')),
+            h('span', { className: 'flowv-lead-text', title: leadHeadline }, leadHeadline),
+            h('div', { className: 'flowv-spacer' }),
+            primaryAction)
+
           var titleInput = h('input', {
             className: 'flowv-input flowv-title-input',
             defaultValue: task.title || '',
@@ -2864,6 +3052,7 @@ window.__ModuleLoader__.load({
           return h('div', { className: 'flowv-drawer-mask flowv-sheet-mask' + (open ? ' is-open' : ' is-closing') + (isTop ? ' is-top' : ' is-under'), onClick: isTop ? close : undefined },
             h('div', { className: 'flowv-drawer flowv-sheet' + (open ? ' is-open' : ' is-closing'), onClick: function (e) { e.stopPropagation() } },
               headEl,
+              leadEl,
               h(DrawerJump, { key: 'jump-' + task.id }),
               h('div', { className: 'flowv-drawer-body' },
                 h('div', null,
@@ -2889,7 +3078,7 @@ window.__ModuleLoader__.load({
                     }
                     var scopePaths = (tk.scope && tk.scope.paths) || []
                     var scopeSymbols = (tk.scope && tk.scope.symbols) || []
-                    return h(Card, { title: '工作包', extra: task.parentId ? h(Btn, { small: true, onClick: function (e) { if (e) e.stopPropagation(); openDrawer(task.parentId) } }, '父卡 ' + task.parentId) : null },
+                    return h(Card, { fold: cardFold('ticket', '八问 + 依赖', false), title: '工作包', extra: task.parentId ? h(Btn, { small: true, onClick: function (e) { if (e) e.stopPropagation(); openDrawer(task.parentId) } }, '父卡 ' + task.parentId) : null },
                       seg('purpose', '① 修改目的', tk.purpose),
                       seg('current', '② 现状', tk.current),
                       h('div', { className: 'flowv-tk-row' },
@@ -2928,7 +3117,7 @@ window.__ModuleLoader__.load({
                     var kids = (d && d.children) || []
                     if (!kids.length) return null
                     var done = kids.filter(function (k) { return k.column === 'done' || k.column === 'cancelled' }).length
-                    return h(Card, { title: '子任务', extra: h('span', { className: 'n' }, done + '/' + kids.length) },
+                    return h(Card, { fold: cardFold('children', done + '/' + kids.length + ' 已完成', false), title: '子任务', extra: h('span', { className: 'n' }, done + '/' + kids.length) },
                       h('div', { className: 'flowv-kids' }, kids.map(function (k) {
                         return h('button', {
                           key: 'kid-' + k.id, type: 'button', className: 'flowv-kid' + (k.blocked ? ' is-blocked' : ''),
@@ -2951,7 +3140,7 @@ window.__ModuleLoader__.load({
                     if (!g || (!g.rounds && !g.verdict)) return null
                     var GL = { idle: '未开始', running: '评审中', settled: '已定稿', escalate: '待人决定' }
                     var GT = { idle: '', running: 'info', settled: 'ok', escalate: 'warn' }
-                    return h(Card, { title: '需求评审', extra: h(Chip, { tone: GT[g.status] || 'info' }, GL[g.status] || g.status) },
+                    return h(Card, { fold: cardFold('grill', '第 ' + g.rounds + '/' + g.maxRounds + ' 轮 · ' + (GL[g.status] || g.status), false), title: '需求评审', extra: h(Chip, { tone: GT[g.status] || 'info' }, GL[g.status] || g.status) },
                       h('div', { className: 'flowv-hint' }, '第 ' + g.rounds + '/' + g.maxRounds + ' 轮'),
                       (g.settled || []).length ? h('ul', { className: 'flowv-prog-list' }, g.settled.map(function (x, i) { return h('li', { key: 'st' + i }, x) })) : null,
                       (g.openForHuman || []).length
@@ -2998,6 +3187,8 @@ window.__ModuleLoader__.load({
                   }),
 
                   h(Card, {
+                    fold: cardFold('acceptance', (task.acceptance || []).length + ' 条 · ' + (task.acceptance && task.acceptance.reported ? '已逐项核对' : '待核对'),
+                      task.column === 'verifying' || task.column === 'merging' || task.column === 'done'),
                     title: '验收标准',
                     extra: h('span', { className: 'n' }, String((task.acceptance || []).length)),
                   },
@@ -3034,6 +3225,7 @@ window.__ModuleLoader__.load({
                     }))),
 
                   h(Card, {
+                    fold: cardFold('plan', task.plan && task.plan.revision ? 'r' + task.plan.revision : '还没写', false),
                     title: '计划',
                     extra: task.plan && task.plan.revision ? h('span', { className: 'n' }, 'r' + task.plan.revision + (task.plan.approvedRevision ? ' ✓' : '')) : null,
                   },
@@ -3080,7 +3272,7 @@ window.__ModuleLoader__.load({
                     ),
                   ) : null,
 
-                  h(Card, { title: '状态' },
+                  h(Card, { fold: cardFold('status', colLabel + (task.phase ? ' · ' + task.phase : ''), false), title: '状态' },
                     kv([
                       ['列', COLUMN_TITLES[task.column] || task.column],
                       ['阶段', task.phase || '—'],
@@ -3108,7 +3300,7 @@ window.__ModuleLoader__.load({
                   // 不是为了绕过守卫，而是「这一步走早了」需要一个不带惩罚的退路 ——
                   // 原来只能 取消 + 重开，重开计数会涨，看着像这张卡反复失败。
                   rewindTargetsFor(task).length
-                    ? h(Card, { title: '回退（退回更早的列）' },
+                    ? h(Card, { fold: cardFold('rewind', '退回更早的列（会清停止报告）', false), title: '回退（退回更早的列）' },
                       h('div', { className: 'flowv-hint', style: { marginBottom: 6 } },
                         task.activeRunId
                           ? '这张卡还有运行中的 run（' + String(task.activeRunId).slice(0, 12) + '），先让它停下来再回退'
@@ -3144,7 +3336,7 @@ window.__ModuleLoader__.load({
                         }, '↩ 回退到所选列')))
                     : null,
 
-                  h(Card, { title: '回信给发起对话' },
+                  h(Card, { fold: cardFold('reply', '把结论回给发起这张卡的对话', false), title: '回信给发起对话' },
                     h('div', { className: 'flowv-hint', style: { marginBottom: 6 } },
                       task.originSessionId
                         ? '这条消息会直接投回发起这张卡的那个对话（' + String(task.originSessionId).slice(0, 14) + '）'
@@ -3172,11 +3364,11 @@ window.__ModuleLoader__.load({
                       }, '发送回信'))),
 
                   task.stopReport
-                    ? h(Card, { title: '停止报告' }, md(task.stopReport.summary))
+                    ? h(Card, { fold: cardFold('stopReport', '工人这一轮自述', false), title: '停止报告' }, md(task.stopReport.summary))
                     : null,
 
                   (d.runs || []).length
-                    ? h(Card, { title: '运行记录' },
+                    ? h(Card, { fold: cardFold('runs', '逐轮运行记录', false), title: '运行记录' },
                       h('ul', { className: 'flowv-list' }, (d.runs || []).map(function (r) {
                         return h('li', { key: r.id },
                           h('time', null, dayTime(r.startedAt)),
@@ -3912,9 +4104,9 @@ window.__ModuleLoader__.load({
           h('div', { className: 'flowv-top' },
             stats,
             h('div', { className: 'flowv-lanes' },
-              laneCard(v.lanes.human),
+              laneRow(v.lanes.human),
               // 纯本地看板模式（没开记录 issue）就不显示 issue 车道：它没有工位也不该有活
-              v.project && v.project.config && v.project.config.recordIssues ? laneCard(v.lanes.issue) : null)),
+              v.project && v.project.config && v.project.config.recordIssues ? laneRow(v.lanes.issue) : null)),
           h('div', { className: 'flowv-board-head' },
             h('span', { className: 'flowv-board-title' }, '看板'),
             h('span', { className: 'flowv-hint' }, '点卡片打开详情；空列会收窄，把宽度让给有卡的列')),

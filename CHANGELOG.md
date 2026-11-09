@@ -3,6 +3,18 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.011（package 0.0.11，schema 仍 14）
+
+- 新增 `lib/view-model.js`（297 行，纯函数）：`BADGE_ORDER` / `badgesFor` / `chipsFor(task, max)` / `headlineFor` / `cardView`，
+  统一「这张卡在每个高度上说什么」；`lib/panel.js` 的 `taskCard` 追加投影 `view`（其余字段不变）。
+- 看板卡片改读 `task.view`：最多 2 枚徽标 + `+N` 溢出、第三行用服务端算好的 headline；没有 `view` 的老服务端回退旧路径。
+- 顶栏低频动作收进「更多」菜单（停止调度常驻）；统计 16 → 6（其余折叠）；车道两张卡合成一行、水位仅 >70% 显示。
+- 抽屉：`Card` 支持折叠（`fold:{open,summary,onToggle}`，折叠态不渲染正文）；新增结论条与 10 个可折叠块。
+- 看板列可收起（`colCollapsed`），空列保留 108px rail；补 `:focus-visible` 与按下 `scale(.99)`。
+- 动效：折叠 180ms（`flowv-fold-in`）、箭头旋转 120ms、`prefers-reduced-motion` 全部关闭。
+- 新增 `test/view-model.mjs`（8 checks）；`test/render.mjs` 增「三层密度」断言（更多菜单、统计折叠、Fold 默认值）；
+  `test/merge-state.mjs` 的「客户端内联副本」断言改为「view-model 是唯一来源」。
+- 未做：设置页 4 组重排、Inbox 分区折叠、客户端详情页语义副本删除、CSS 类名收敛（见 `.wayfinder/tickets/ui-05*`、`ui-06*`）。
 ## v0.010（package 0.0.10，schema 仍 14）
 
 - 子卡的互斥判据从「同父卡一律串行」改成「**scope 重叠才串行**」：`lib/units.js` 新增 `scopesConflict` / `canRunParallel` / `scratchBranchFor`。

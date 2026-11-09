@@ -215,6 +215,39 @@ assert.ok(flat.indexOf('看板') >= 0, '应当渲染出看板区')
 assert.ok(flat.indexOf('flowv-fab-btn') >= 0, 'inbox 有内容时应出现图标浮标')
 assert.ok(flat.indexOf('flowv-badge') >= 0, '浮标上应有数字角标')
 
+// ---- v0.011：三层密度 ------------------------------------------------------
+// 首屏只回答「哪儿卡住了」：低频按钮收进「更多」，统计只留 6 个，其余折叠。
+//
+// 注意：这个 harness 只跑 createElement，不渲染组件 —— 所以断言要看**元素本身**
+//（props 上的 open / aria-expanded），而不是找渲染后的 DOM 类名。
+const nodeList = (node, pred, out = []) => {
+  if (!node || typeof node !== 'object') return out
+  if (Array.isArray(node)) { node.forEach((n) => nodeList(n, pred, out)); return out }
+  if (pred(node)) out.push(node)
+  ;(node.children || []).forEach((n) => nodeList(n, pred, out))
+  return out
+}
+const btnTextOf = (n) => JSON.stringify(n.children || [])
+const labelledNode = (t, label) => nodeList(t, (n) => JSON.stringify(n.children || []) === JSON.stringify([label]))[0]
+const menuPop = (t) => nodeList(t, (n) => (n.props || {}).className === 'flowv-menu-pop')[0]
+const foldByTitle = (t, title) => nodeList(t, (n) => n.props && n.props.title === title && typeof n.props.onToggle === 'function')[0]
+
+assert.ok(nodeList(tree, (n) => n.props && n.props['aria-haspopup']).length === 1, '顶栏要有「更多」入口')
+assert.equal(menuPop(tree), undefined, '默认不展开：低频按钮一个都不进树')
+assert.equal(labelledNode(tree, '初始化仓库'), undefined, '初始化仓库默认不该占首屏（它在「更多」里）')
+assert.equal(nodeList(tree, (n) => n.props && n.props.title === '全部统计').length, 1, '统计区要有「全部统计」折叠块')
+
+nodeList(tree, (n) => n.props && n.props['aria-haspopup'])[0].props.onClick()
+const treeMore = await drive({ sessionId: 'ses_chief' })
+assert.ok(menuPop(treeMore), '展开「更多」后菜单要进树')
+assert.ok(labelledNode(treeMore, '初始化仓库'), '菜单里要有初始化仓库')
+
+// 折叠块的开关状态由 props.open 表达：默认关、点一下开。
+const foldStats = foldByTitle(treeMore, '全部统计')
+assert.equal(foldStats.props.open, false, '「全部统计」默认折叠')
+foldStats.props.onToggle()
+const treeAll = await drive({ sessionId: 'ses_chief' })
+assert.equal(foldByTitle(treeAll, '全部统计').props.open, true, '点过之后要保持展开（状态在 FlowView 里）')
 // ② 反向验证：把 inbox 拿掉也不能崩（防止又出现只有某条数据才崩）
 const noInbox = JSON.parse(JSON.stringify(VIEW))
 delete noInbox.inbox

@@ -11,13 +11,14 @@
  *      只能复制一份，所以必须由测试替人盯着"改一处要改两处"）。
  */
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Store, TRANSITIONS, applyTransition } from '../lib/core.js'
 import { FlowDomain } from '../lib/domain.js'
 import { buildProjectView } from '../lib/panel.js'
 import { MERGE_REASON, MERGE_STATE_LABEL, mergeReasonOf } from '../lib/merge-state.js'
+import { BADGE_ORDER, badgesFor } from '../lib/view-model.js'
 
 const NL = String.fromCharCode(10)
 
@@ -172,6 +173,18 @@ await t('buildProjectView 的卡片透出 mergeState / mergeReason（否则看�
   assert.equal(card.mergeReason, 'base-missing', '卡片缺 mergeReason（或值不对）')
   // noMerge 仍要在：老客户端读它，删掉就是给升级窗口埋雷
   assert.equal(card.noMerge, true)
+  // ui-02：卡片必须带 view（徽标 / 摘要行 / 折叠默认值）。taskCard 是白名单式手写的，
+  // 漏一个 view 不报错 —— 客户端只会退回「每个读口各写一份 if」，那正是 ui-02 要删的重复。
+  assert.ok(card.view, '卡片缺 view 投影（ui-02）')
+  assert.equal(card.view.tone, 'bad', 'mergeState=blocked 的卡应该整体标红')
+  assert.equal(card.view.headline.text, null, '这张卡没有 blocked / progress，摘要行应为 null（不是空串）')
+  assert.equal(card.view.chips[0].key, 'merge-blocked', 'view 的第一枚徽标应该是 merge-blocked')
+  assert.equal(card.view.chips[0].text, MERGE_REASON['base-missing'].label)
+  assert.equal(card.view.more, 0, '只有一枚上卡徽标，不该有溢出')
+  assert.equal(card.view.folds.acceptance, false, 'todo 列的验收清单默认折叠')
+  assert.equal(card.view.folds.progress, true)
+  // 投影要能过 JSON（浏览器拿到的就是这段）：view 必须是纯数据，不含函数 / undefined 键。
+  assert.deepEqual(JSON.parse(JSON.stringify(card.view)), card.view)
 })
 
 // ---------- ④ 兜底与 UI 一致性 ----------
@@ -189,18 +202,27 @@ await t('mergeReasonOf 对未知原因返回兜底、不抛', () => {
   assert.equal(mergeReasonOf({ mergeReason: 'base-missing' }).state, 'blocked')
 })
 
-await t('client.js 内联副本与表一致（改一处要改两处）', () => {
-  const src = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
-  assert.ok(/var MERGE_REASON = \{/.test(src), 'client.js 里要有内联的 MERGE_REASON')
-  assert.ok(/var MERGE_STATE_LABEL = \{/.test(src), 'client.js 里要有内联的 MERGE_STATE_LABEL')
-  assert.ok(/var mergeReasonOf = function/.test(src), 'client.js 里要有 mergeReasonOf')
-  assert.ok(/var mergeBadgeOf = function/.test(src), '看板 chip 要走表格')
-  assert.ok(/var mergeKvRow = function/.test(src), '详情行要走表格')
-  for (const key of Object.keys(MERGE_REASON)) {
-    const item = MERGE_REASON[key]
-    assert.ok(src.indexOf("'" + key + "'") >= 0, 'client.js 缺原因键：' + key)
-    assert.ok(src.indexOf(item.label) >= 0, 'client.js 的 label 漂了：' + key + ' → ' + item.label)
-    assert.ok(src.indexOf(item.fix) >= 0, 'client.js 的 fix 漂了：' + key)
+// ui-02：徽标不再由客户端各写一遍 —— lib/view-model.js 是徽标的读侧，panel 把
+// cardView 的结果投影成 card.view。原来那条「client.js 内联副本逐键比对」随之改成
+// 「每个 merge 原因都必须能在卡上说出自己的 label」：表里加一个原因、view-model
+// 忘了给它文案，看板就会静默少一枚标（不报错，只是那张卡看起来正常）。
+await t('lib/view-model.js 的 BADGE_ORDER / badgesFor 覆盖 MERGE_REASON 的全部原因', () => {
+  const keys = BADGE_ORDER.map((b) => b.key)
+  for (const k of ['merge-blocked', 'merge-pending']) assert.ok(keys.indexOf(k) >= 0, 'BADGE_ORDER 缺 ' + k)
+  assert.equal(new Set(keys).size, keys.length, 'BADGE_ORDER 有重复键：' + keys.join(','))
+  for (const reason of Object.keys(MERGE_REASON)) {
+    const item = MERGE_REASON[reason]
+    // blocked：文案与配色取自原因表（红色故障 / 黄色环境问题），标题给可执行的修复动作。
+    const blocked = badgesFor({ mergeState: 'blocked', mergeReason: reason }).find((b) => b.key === 'merge-blocked')
+    assert.ok(blocked, reason + ' 在 mergeState=blocked 时没有徽标')
+    assert.equal(blocked.text, item.label, reason + ' 的徽标文案漂了')
+    assert.equal(blocked.tone, item.tone, reason + ' 的徽标配色漂了')
+    assert.equal(blocked.title, item.fix.replace(/`/g, ''), reason + ' 的悬停修复动作漂了（chip 里不该带反引号）')
+    // pending：文案同样来自表，但配色恒 info —— 排队不是故障。
+    const pending = badgesFor({ mergeState: 'pending', mergeReason: reason }).find((b) => b.key === 'merge-pending')
+    assert.ok(pending, reason + ' 在 mergeState=pending 时没有徽标')
+    assert.equal(pending.text, item.label, reason + ' 的排队文案漂了')
+    assert.equal(pending.tone, 'info', reason + ' 是排队，不该用告警色')
   }
 })
 
