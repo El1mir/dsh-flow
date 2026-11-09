@@ -2338,6 +2338,7 @@ window.__ModuleLoader__.load({
           skipped: '有意未合并',
           'no-merge': '无可合并内容',
           'merged-into-parent': '已合入父分支',
+          partial: '部分完成，还有剩余',
           'not-delivered': '未交付',
         }
         var deliveryStateOf = function (t) {
@@ -2348,6 +2349,7 @@ window.__ModuleLoader__.load({
           if (t.phase === 'merged-into-parent') return 'merged-into-parent'
           // v0.008：工作单元直接在父检出里提交，落点同样是父分支。
           if (t.phase === 'done-in-parent') return 'merged-into-parent'
+          if (t.phase === 'done-partial') return 'partial'
           return 'not-delivered'
         }
         // 服务端投影带 deliveryState 时以它为准（老服务端还没重启时退回本地算）。

@@ -255,7 +255,8 @@ await t('delivered 只认 done + merged：skipped / no-merge / merged-into-paren
 // ---------------------------------------------------------------------------
 
 await t('deliveryStateOf 与 core.deliveryState 对同一组输入结果一致（漂移检测）', () => {
-  const phases = ['merged', 'merged-skipped', 'done-no-merge', 'merged-into-parent', 'merge-ready', '', null, undefined]
+  // v0.016（ticket 04）：done-partial 进同一组输入 —— 三份镜像都要认得它。
+  const phases = ['merged', 'merged-skipped', 'done-no-merge', 'merged-into-parent', 'done-in-parent', 'done-partial', 'merge-ready', '', null, undefined]
   const columns = ['done', 'running', 'verifying', 'todo', 'merging', null, undefined]
   const cases = [null, undefined, {}, { column: 'done' }]
   for (const column of columns) {
@@ -268,7 +269,7 @@ await t('deliveryStateOf 与 core.deliveryState 对同一组输入结果一致�
     assert.ok(Object.prototype.hasOwnProperty.call(DELIVERY_STATE, a), '结果必须是 DELIVERY_STATE 的键：' + a)
   }
   // 五个键一个不少：少一个键的后果是详情页显示 undefined
-  assert.deepEqual(Object.keys(DELIVERY_STATE).sort(), ['delivered', 'merged-into-parent', 'no-merge', 'not-delivered', 'skipped'])
+  assert.deepEqual(Object.keys(DELIVERY_STATE).sort(), ['delivered', 'merged-into-parent', 'no-merge', 'not-delivered', 'partial', 'skipped'])
 })
 
 // ③ 客户端副本（第三份镜像）也要对着 core 校验：
