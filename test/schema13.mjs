@@ -180,7 +180,6 @@ await t('merge_into_parent：没有 parentId 的卡走不了这条路', () => {
   assert.throws(() => applyTransition(task, 'merge_into_parent', { role: 'system' }, {}), /父分支/)
 })
 
-console.log(NL + pass + ' 通过，' + fails.length + ' 失败')
 // ---- E：schema 15 → 16 的吞吐字段 ----------------------------------------
 await t('迁移 15：老卡补吞吐默认值、验收档位与 acceptance 下标对齐、幂等', async () => {
   const f = join(dir, 'schema15.json')
@@ -217,6 +216,7 @@ await t('迁移 15：老卡补吞吐默认值、验收档位与 acceptance 下�
   assert.equal(JSON.stringify(again.tasks), before)
 })
 
+console.log(NL + pass + ' 通过，' + fails.length + ' 失败')
 if (fails.length) {
   for (const f of fails) console.log('- ' + f.name + ': ' + String((f.e && f.e.stack) || f.e).split(NL).slice(0, 3).join(NL))
   process.exit(1)
