@@ -1,3 +1,22 @@
+## v0.016（package 0.0.16）
+
+主题：**把「人在等、系统却算在跑」这一层拆开**。基线是 21 小时 / 86 个 run / 442 工位小时换来 +178/−9 行、其中产品代码 39 行；「执行中」里 65% 在等。
+
+- schema **15 → 16**：卡补 `partial` / `remainder`（逐条带状态与理由）/ `noProgressRuns` / `infraAttempts` / `infraRetryAt` / `envProbe` / `handoff` / `dependsOnMeta` / `acceptanceKinds`；run 补 `failure` / `lastProgressAt` / `delivered`。全部默认值可迁移、幂等。
+- **建检出时拷 `.env`**（`copyEnvFiles`，默认 `.env` / `.env.local`）：目标只读、不覆盖已有、越界路径拒绝；复用快路径也补拷。ADR-0003 拒绝共享的是**依赖目录**，密文本不在此列。
+- **接力包**：每次 stop 系统自动写 `task.handoff`（≤5 条提交、≤40 个改动文件、`progress.next`、未答请示、上轮返工理由），下一轮案卷注入「【上一轮停在哪】」；起点取 `unitStartSha || wt.baseSha`，没有起点宁可不写。
+- **部分完成**：`accept_partial`（verified→done/`done-partial`，guard 要 `partial` 且 `remainder` 非空）+ `splitRemainder`（剩余项自动变子卡，父卡用 system 身份收口）；`accept` 对 partial 卡拒并指路；自动验收跳过 partial。
+- **卡级推进预算**：连续 `settings.noProgressBudget`（默认 3）轮无新提交 → 自动 block + 开一张决策工单（split / env / cancel / continue）。
+- **验收分档** `acceptanceKinds ∈ auto|env|human`：env 未过 → `needs_env`（`blocked-needs-env`）+ 环境类请示，**不计返工**；human 未过 → 决策请示；只有 auto 项才算证据不足。
+- **失败先分类**（`lib/retry.js`）：infra（信号杀死 / 磁盘满 / 启动即退 / 不可达 / 命令缺失）走指数退避 15s×2^n（上限 3），用尽落 `infra_exhausted` + 环境请示；内容失败仍走原返工路径。run 上记 `failure = {kind, signature, reason, at}`。
+- **空转收回**：30 分钟（`settings.idleRunMs`）无任何进展证据（新提交 / 进度 / 评论）→ 收回 run、保留现场、通知调度；**心跳不再算进展**。分支头变化是最强进展信号（`markRunSeen`）。
+- **中断续跑**：进程重启/超时打断的工人轮次自动接续（默认开、上限 5、人点停止不计）；续跑前看分支是否已前进，已前进就写「接续收尾」防重做。
+- **环境自检 preflight**（`lib/preflight.js`）：项目可声明文件 / 目录 / http 检查项，30 分钟缓存（配置改动立即失效），失败时卡进 `blocked-needs-env` 并开清单式请示，通过时案卷里写一行「环境自检：✔ .env ✔ backend:8484（3 条）」。
+- **等 / 跑拆分**：统计条五个互不重叠的数字（执行中 / 等待 / 阻塞 / 待验收 / 待答复，合起来是全部在飞的卡），卡片与列头显示「在等什么」（等依赖 T-050 的 report.md / 等分支 / 缺环境）。
+- **停摆告警**：项目连续 `settings.stallHours`（默认 6）小时没有任何 run 且仍有待办 → 工单箱一条通知；同一窗口只发一次，有新 run 即重置。
+- **依赖按产物判定**：拆分项可声明上游产物路径，产物在上游分支上即放行下游（并行不互踩）；未声明时退回旧判据（上游验收完成）。
+- 新测试：`test/env-files.mjs`（7）、`test/handoff.mjs`（8）、`test/partial-accept.mjs`（8）、`test/progress-budget.mjs`（7）、`test/acceptance-kinds.mjs`（7）、`test/infra-class.mjs`（10）、`test/no-output.mjs`（6）、`test/worker-resume.mjs`（6）、`test/wait-vs-run.mjs`（5）、`test/stall.mjs`（5）、`test/artifact-deps.mjs`（5）、`test/preflight.mjs`（7）。
+- 规格与票：`.scratch/v0.016-throughput/spec.md` + `issues/01..13`。
 ## v0.015（package 0.0.15）
 
 - 停止报告支持六问：`problem` / `cause` / `impact` / `fix` / `regression` / `design`（各 600 字上限），
