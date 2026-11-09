@@ -164,6 +164,7 @@ window.__ModuleLoader__.load({
 
     // ---- HTTP：所有写操作都走 /api/flow/action（与原工作台同一张动作表） ------
     var postAction = function (action, args) {
+
       return fetch('/api/flow/action', {
         method: 'POST',
         credentials: 'same-origin',
@@ -1005,6 +1006,10 @@ window.__ModuleLoader__.load({
       '.flowv-mail-empty{margin:auto;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:12px;padding:40px}',
       '.flowv-mail-task{font-family:var(--dsw-font-mono,ui-monospace);font-size:11px;background:none;border:none;color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));cursor:pointer;padding:0 2px}',
       '.flowv-mail-task:hover{text-decoration:underline}',
+'.flowv-mail-arch{font-size:11px;background:none;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;color:var(--dsw-alias-label-tertiary);transition:color 120ms linear,background 120ms linear]}',
+'.flowv-mail-arch:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2,transparent)}',
+'.flowv-mail-arch:disabled{opacity:.5;cursor:default}',
+'.flowv-mail-arch:focus-visible{outline:2px solid var(--dsw-alias-border-accent,currentColor);outline-offset:1px}',
       '.flowv-ib-head.is-static{cursor:default}',
       /* 预设组件：可在界面上直接动手的内容，不是又一段文字 */
       '.flowv-blks{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}',
@@ -2792,7 +2797,7 @@ var silentRead = function (inboxId) {
                 h('div', { className: 'flowv-mail-row-meta' },
                   x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
                   asks.length ? h('span', null, answeredOf(x) + '/' + asks.length) : null,
-                  x.id === (inbox.keep || '') ? h('span', { className: 'flowv-mail-row-keep' }, '刚回复') : (x.status === 'answered' ? h('span', null, '已回') : null),
+                  x.id === (inbox.keep || '') ? h('span', { className: 'flowv-mail-row-keep' }, x.status === 'archived' ? '已归档' : '刚回复') : (x.status === 'answered' ? h('span', null, '已回') : null),
                   x.status === 'archived' ? h('span', null, '归档') : null)))
           }
 
@@ -3215,6 +3220,27 @@ var silentRead = function (inboxId) {
             return h('div', { className: 'flowv-blks' }, merged.map(function (b, i) { return blockEl(x, b, 'bk' + i) }))
           }
 
+          // 归档（手动兜底）：归档完**留在这一条**，和回复同样的就地更新 —— 否则刚点完归档
+          // 这张工单就从当前 tab 消失、选中项跳到下一张，人会以为自己点错了。
+          var archiveInbox = function (x) {
+            if (!window.confirm('直接归档这条工单？' + SEP + SEP + '通常应该让调度自己判断阻塞是否消除后再归档；这里手动归档是兜底。')) return
+            setBusy('inbox.archive')
+            act('inbox.archive', { inboxId: x.id }).then(function (res) {
+              if (!res) return
+              setNotice('已归档。归档后的工单在「归档」里还能翻到。')
+              var at = new Date().toISOString()
+              var items3 = (inbox.items || []).map(function (y) {
+                return y.id !== x.id ? y : Object.assign({}, y, { status: 'archived', readAt: y.readAt || at, updatedAt: at })
+              })
+              var c3 = Object.assign({}, inbox.counts || {})
+              if (typeof c3.open === 'number') c3.open = Math.max(0, c3.open - 1)
+              if (typeof c3.archived === 'number') c3.archived = c3.archived + 1
+              setInbox(Object.assign({}, inbox, {
+                items: items3, counts: c3, open: c3.open, archived: c3.archived,
+                sel: x.id, keep: x.id,
+              }))
+            })
+          }
           var actsEl = function (x) {
             if (x.status === 'archived') return h('div', { className: 'flowv-inbox-acts' }, h('span', { className: 'flowv-hint' }, '已归档 · 只读留档'))
             return h('div', { className: 'flowv-inbox-acts' },
@@ -3222,16 +3248,7 @@ var silentRead = function (inboxId) {
                 small: true,
                 title: '手动归档：一般不需要 —— 调度看到你的回复后会自己判断阻塞是否消除并归档',
                 disabled: busy === 'inbox.archive',
-                onClick: function (e) {
-                  e.stopPropagation()
-                  if (!window.confirm('直接归档这条工单？' + String.fromCharCode(10) + String.fromCharCode(10) + '通常应该让调度自己判断阻塞是否消除后再归档；这里手动归档是兜底。')) return
-                  setBusy('inbox.archive')
-                  act('inbox.archive', { inboxId: x.id }).then(function () {
-                    setBusy('')
-                    load()
-                    refreshInbox({ includeArchived: tab === 'archived' })
-                  })
-                },
+                onClick: function (e) { e.stopPropagation(); archiveInbox(x) },
               }, '手动归档'))
           }
           // ---- v0.013 消息流：整条工单读起来像一条对话，但不用气泡 ----------
@@ -3267,6 +3284,15 @@ var silentRead = function (inboxId) {
                   className: 'flowv-mail-task', type: 'button', title: '打开这张卡',
                   onClick: function (e) { e.stopPropagation(); setInbox(null); openDrawer(x.taskId) },
                 }, x.taskId) : null,
+                // v0.015.1：把「手动归档」放回头栏。v0.013 改成消息流时，归档按钮只留在
+                // 已归档分支的脚注里（actsEl 只在 infoDetailEl 与已归档 detail 用），结果问答类
+                // 工单一旦没归档就再也点不到归档 —— 而它恰恰是唯一需要人手动兜底的地方。
+                (!archived && x.kind !== 'info' && x.kind !== 'error') ? h('button', {
+                  className: 'flowv-mail-arch', type: 'button',
+                  title: '手动归档这条工单（一般是兜底：正常情况让调度判断阻塞消除后自己归档）',
+                  disabled: busy === 'inbox.archive',
+                  onClick: function (e) { e.stopPropagation(); archiveInbox(x) },
+                }, '归档') : null,
                 h('span', { className: 'flowv-ib-status' }, archived ? '已归档' : (x.status === 'answered' ? '已答复 · 待调度确认' : '待答复'))),
               h('div', { className: 'flowv-mail-head-meta' },
                 dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-')

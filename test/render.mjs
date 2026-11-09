@@ -325,6 +325,38 @@ assert.ok(drawerFlat.indexOf('flowv-ask') >= 0, '每个 ask 要渲染成可回�
 assert.ok(drawerFlat.indexOf('flowv-ib-sec') >= 0, '分区容器应当渲染')
 assert.ok(drawerFlat.indexOf('回复') >= 0, '应当有提交回复按钮')
 
+// ⑤ v0.015.1：问答类工单的「归档」按钮必须真的在（v0.013 改成消息流时它只剩在已归档分支里，
+//    等于永远点不到；线上症状就是「归档会话的按键又不见了」）。
+{
+  assert.ok(drawerFlat.indexOf('flowv-mail-arch') >= 0, '未归档工单要能看到「归档」按钮')
+  const clsBtns = (node, needle, out = []) => {
+    if (!node || typeof node !== 'object') return out
+    if (Array.isArray(node)) { for (const n of node) clsBtns(n, needle, out); return out }
+    const cls = node.props && node.props.className
+    if (typeof cls === 'string' && cls.indexOf(needle) >= 0 && typeof node.props.onClick === 'function') out.push(node)
+    for (const c of node.children || []) clsBtns(c, needle, out)
+    return out
+  }
+  const archBtns = clsBtns(treeWithDrawer, 'flowv-mail-arch')
+  assert.ok(archBtns.length >= 1, '归档按钮要带 onClick，实际 ' + archBtns.length)
+  // 注意：本文件后面几段会把 globalThis.fetch 换成不记录的薄桩，所以这里临时自己包一层。
+  const realFetch = globalThis.fetch
+  const seen = []
+  globalThis.fetch = async (url, opts) => {
+    try { seen.push(JSON.parse((opts && opts.body) || '{}').action || '') } catch (e) { seen.push('') }
+    return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true } }) }
+  }
+  const realConfirm = windowStub.confirm
+  windowStub.confirm = () => true
+  try {
+    archBtns[0].props.onClick({ stopPropagation() {} })
+    await new Promise((r) => realSetTimeout(r, 0))
+  } finally {
+    globalThis.fetch = realFetch
+    windowStub.confirm = realConfirm
+  }
+  assert.ok(seen.indexOf('inbox.archive') >= 0, '点归档要发 inbox.archive，实际 ' + JSON.stringify(seen))
+}
 // ④ 抽屉必须**可见**：只断言 树里有请示箱 是不够的。
 //
 // 线上症状是「点了请示按钮没有任何反应」—— 树建出来了、文字也在，
