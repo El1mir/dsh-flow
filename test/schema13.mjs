@@ -91,17 +91,21 @@ await t('deliveryState 把四类 done 分开，且未 done 一律 not-delivered'
   assert.equal(deliveryState({ column: 'done', phase: 'merged-skipped' }), 'skipped')
   assert.equal(deliveryState({ column: 'done', phase: 'done-no-merge' }), 'no-merge')
   assert.equal(deliveryState({ column: 'done', phase: 'merged-into-parent' }), 'merged-into-parent')
+  // v0.016（ticket 04）：部分完成是一类独立落点，不是交付。
+  assert.equal(deliveryState({ column: 'done', phase: 'done-partial' }), 'partial')
+  assert.equal(isDelivered({ column: 'done', phase: 'done-partial' }), false, '部分完成不是交付')
   assert.equal(deliveryState({ column: 'done', phase: 'whatever' }), 'not-delivered')
   assert.equal(deliveryState({ column: 'running', phase: 'merged' }), 'not-delivered', '在途卡即使 phase 像也不能算交付')
   assert.equal(deliveryState(null), 'not-delivered')
 })
 
-await t('DELIVERY_STATE 的五个键与 deliveryState 的返回值同集合', () => {
+await t('DELIVERY_STATE 的键与 deliveryState 的返回值同集合', () => {
   const got = new Set([
     deliveryState({ column: 'done', phase: 'merged' }),
     deliveryState({ column: 'done', phase: 'merged-skipped' }),
     deliveryState({ column: 'done', phase: 'done-no-merge' }),
     deliveryState({ column: 'done', phase: 'merged-into-parent' }),
+    deliveryState({ column: 'done', phase: 'done-partial' }),
     deliveryState({ column: 'todo', phase: '' }),
   ])
   assert.deepEqual([...got].sort(), Object.keys(DELIVERY_STATE).sort())
