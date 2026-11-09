@@ -3,6 +3,13 @@
 版本线说明：v0.001 起为本仓库的**新版本线**（此前代码对应 v1.39.1 的连续开发，但从未建过 git 仓库）。
 npm 的 `version` 字段必须是合法 semver，所以 `package.json` 写 `0.0.1`，对外展示与 git tag 用 `v0.001`。
 
+## v0.009（package 0.0.9，schema 仍为 14）
+
+- `rollupParent` 按交付事实（子卡 phase）分类，结果写 `task.rollup`；`domain.recordRollup` 是唯一写入口。
+- 全部落地 → 父卡 `mergeState = ready`；有 `done-no-commit` / `merged-skipped` → 写点名评论 + 叫醒调度，父卡保持 `pending`。
+- `domain.review()` 拒子卡；`client.js` 去掉子卡的合并动作与「合并」行，加「交付落点」与父卡「子卡核对」行。
+- `deliveryState` / `deliveryStateOf` 把 `done-in-parent` 归到 `merged-into-parent`（读侧语义相同：代码在父分支，未进 base）。
+- 新增 `test/rollup-delivery.mjs`（5 checks）。
 ## v0.008（package 0.0.8，schema 14）
 
 ### 子卡是工作单元

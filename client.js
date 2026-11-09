@@ -2088,6 +2088,8 @@ window.__ModuleLoader__.load({
           if (t.phase === 'merged-skipped') return 'skipped'
           if (t.phase === 'done-no-merge') return 'no-merge'
           if (t.phase === 'merged-into-parent') return 'merged-into-parent'
+          // v0.008：工作单元直接在父检出里提交，落点同样是父分支。
+          if (t.phase === 'done-in-parent') return 'merged-into-parent'
           return 'not-delivered'
         }
         // 服务端投影带 deliveryState 时以它为准（老服务端还没重启时退回本地算）。
@@ -2138,10 +2140,34 @@ window.__ModuleLoader__.load({
           if (state === 'no-merge') {
             return ['交付', h('span', { title: '本来就没有可合进基线的东西' }, label)]
           }
-          return ['交付', h('span', { title: '改动由父分支统一发布' }, label + ' · 改动在父分支上')]
+          // 工作单元的落点必须写出**具体分支名**：只写「改动在父分支上」，
+          // 人还是得回去翻父卡才知道是哪条分支（T-049 那次就是这么绕回不来的）。
+          var land = task && (task.branchFrom || (task.parentId ? 'flow/' + task.parentId : null))
+          return ['交付落点', h('span', { title: '改动由父卡那一个 PR 统一发布' },
+            label + ' · ' + (land ? h('span', { className: 'flowv-mono' }, land) : '父分支'))]
+        }
+
+        /**
+         * 父卡的「子卡核对」行（v0.008）：rollup 在收口时逐张子卡核过「到底落没落地」。
+         * 没落地的子卡（done-no-commit / merge_skip）必须在这一行显形 ——
+         * 否则父卡看起来「子卡都完成了」，实际有一条支线的活根本没进来。
+         */
+        var rollupKvRow = function (task) {
+          var r = task && task.rollup
+          if (!r) return null
+          var bad = Array.isArray(r.undelivered) ? r.undelivered : []
+          if (!bad.length) {
+            return ['子卡核对', h('span', { title: '每张子卡都有落地提交' }, '全部落地（' + String((r.delivered || []).length) + ' 张）')]
+          }
+          return ['子卡核对', h('div', null,
+            h('div', { style: { color: 'var(--dsw-alias-state-warn-primary)' } }, '有 ' + bad.length + ' 张子卡没有落地改动'),
+            h('div', { className: 'flowv-hint', style: { marginTop: 2 } }, bad.join('、') + ' —— 核对后再决定要不要合并'))]
         }
 
         var mergeKvRow = function (task) {
+          // v0.008：工作单元没有「合并」这一维。以前它显示「不走合并（no-code-change）」，
+          // 那是一句既不准确也不解释任何事的话 —— 子卡的交付面只有父卡。
+          if (task && task.parentId) return null
           var state = task && task.mergeState
           if (!state) {
             if (!task || !task.noMerge) return null
@@ -2789,11 +2815,13 @@ window.__ModuleLoader__.load({
             if (t.column === 'todo') { b('认领 → 规划', 'claim', 'primary'); b('让调度员拆解', 'inspect') }
             if (t.column === 'planning') { b('写计划', 'plan'); b('提交待批', 'plan_ready', 'primary'); b('批准开工', 'approve', 'primary'); b('打回', 'reject') }
             if (t.column === 'running') { b('重新派工', 'dispatch'); b('让调度员看一眼', 'inspect'); b('阻塞', 'block') }
+            // v0.008：工作单元（子卡）没有合并这一维 —— 验收就是收口。
+            var isUnit = !!t.parentId
             if (t.column === 'verifying') {
-              b(t.noMerge ? '验收通过 → 完成' : '验收通过 → 合并', 'accept', 'primary')
+              b(t.noMerge || isUnit ? '验收通过 → 完成' : '验收通过 → 合并', 'accept', 'primary')
               b('返工', 'rework')
             }
-            if (t.column === 'merging') {
+            if (t.column === 'merging' && !isUnit) {
               // v1.30：没有 PR 快照时直接点「审核通过」只会得到「没有 PR 快照，无法审核」。
               // 与其让人猜，不如把该做的那一步摆出来。
               if (!t.mergeRequest) b('① 开 PR 快照', 'pr_open', 'primary')
@@ -3067,6 +3095,7 @@ window.__ModuleLoader__.load({
                       task.blocked ? ['阻塞', h('span', { style: { color: 'var(--dsw-alias-state-error-primary)' } }, task.blocked.reason || '—')] : null,
                       mergeKvRow(task),
                       deliveryKvRow(task),
+                      rollupKvRow(task),
                       task.reopenRequested ? ['重开请求', (task.reopenRequested.by || 'agent') + '：' + (task.reopenRequested.reason || '')] : null,
                       task.inspection ? ['巡检', (task.inspection.verdict || '') + ((task.inspection.reasons || []).length ? ' · ' + (task.inspection.reasons || []).join('；') : '')] : null,
                       ['发起对话', task.originSessionId ? h('span', { className: 'flowv-mono' }, String(task.originSessionId).slice(0, 18)) : '—（非对话发起）'],

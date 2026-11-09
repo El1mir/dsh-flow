@@ -1,11 +1,37 @@
 # dsh-flow
 
-当前版本：**v0.008**（`package.json` = `0.0.8`；npm 版本号不允许前导零，故展示名与字段值分开）
+当前版本：**v0.009**（`package.json` = `0.0.9`；npm 版本号不允许前导零，故展示名与字段值分开）
 
 数据 schema：**13**（v0.002 是 12、v0.001 是 11；首次加载自动迁移，见 CHANGELOG）
 
 DSH 插件：调度台工作台。把「需求 → 拆解 → 派工 → 工人 goal 自循环 → 停止分类 → 验收 → PR 审核 → 合并」做成一条带事务的记录流。
 
+## v0.009：收口时核对「这块活到底进没进父分支」
+
+v0.008 让子卡不再进合并列，但父卡收口时仍只看 `column === 'done'` —— done 有五条来路，
+其中 `done-no-commit`（在父检出里一个提交都没有）与 `merged-skipped`（显式不合并）的活
+根本没进父分支。父卡看起来「子卡都齐了」，实际少一条支线，而这件事在看板上没有任何痕迹。
+
+**现在**：`rollupParent` 逐张子卡按**交付事实**分类，结果落在 `task.rollup = { delivered, undelivered, headSha, at }`：
+
+| 子卡 phase | 归类 | 算缺口 |
+| --- | --- | --- |
+| `done-in-parent` / `merged-into-parent` | delivered | 否 |
+| `done-no-commit` | no-commit | **是** |
+| `merged-skipped` | skipped | **是** |
+| `done-no-merge` | no-merge | 否（本来就没有可合的） |
+| `cancelled` | cancelled | 否（人的决定） |
+
+- 全部落地 → 父卡 `mergeState` 由 `pending` 推成 **`ready`**（这句写在 `markParentIntegration` 注释里，但一直没人实现）。
+- 有缺口 → 父卡照样进待验收（人要看得到），但**不会**自己变 ready（否则 autoMerge 会在一张缺支线的父卡上自动开合），并写一条点名评论 + 叫醒调度。
+- 详情页多一行「子卡核对」：全部落地显示 `全部落地（N 张）`，有缺口则红字列出 id。
+
+**界面同时补的三处**（子卡的交付面只有父卡，界面得跟上）：
+- 子卡详情不再显示「合并」行（以前显示「不走合并（no-code-change）」，一句既不准确也不解释任何事的话）。
+- 「交付」行对工作单元改成「交付落点 · `flow/<parentId>`」——写具体分支名，不然人还得回去翻父卡（T-049 那次就是这么绕不回来的）。
+- 子卡的「验收通过」按钮不再写「→ 合并」，也没有 `pr_open` / 审核 / 跳过合并这些动作。
+
+**顺带的守卫**：`domain.review()` 对子卡直接拒（`子卡不参与审核…`）。状态机已经让它进不了 merging，但 tools/http 这些旁路仍能调到领域方法 —— 判据放在汇合点才拦得住。
 ## v0.008：子卡是工作单元，不是小卡
 
 **你会看到什么**：子卡不再有 `merging` 列、不再开 PR、不再被审核。它跑完就是 `done`，阶段 `done-in-parent`；
