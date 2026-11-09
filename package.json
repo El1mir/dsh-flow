@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-flow",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "private": true,
   "type": "module",
   "main": "index.js",

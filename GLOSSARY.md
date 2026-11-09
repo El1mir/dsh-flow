@@ -78,6 +78,7 @@
 | **REWIND_TARGETS** | 回退能落到的列：todo / planning / running / verifying / merging。done/cancelled 不在里面。 |
 | **lastRewind** | 卡上记的最近一次回退：`{ from, to, reason, at, by }`，同时进 history。 |
 | **调度员自动续跑** | 调度员/主调度自己那轮被环境错误打断时，给同一个会话再发一条消息从断点继续。默认开，上限 5 次。 |
+| **消息 ≠ 开工** | `flow_message(to="worker")` 只有 `kind="instruction"` 会重新派工；`answer`/`question`/`report` 只投递（排进下一条案卷，返回 `queued`），卡不动、不开 run。 |
 | **dispatcherAutoResume / dispatcherAutoResumeMax** | 上面那条的全局设置项（`store.state.settings`）。 |
 | **error（收件箱 kind）** | 系统自己坏了（例如调度员连续失败到头）。与 `info` 同形状的通知，但计入「待处理」。 |
 
@@ -147,7 +148,7 @@ lane / child 只进详情。溢出的收进 `+N`。
 - **验收档位（acceptanceKinds）**：`auto`（系统能验）/ `env`（要环境满足）/ `human`（要人判断）。环境没满足不是返工，是 `blocked-needs-env`。
 - **环境失败（infra failure）**：与内容失败相对：信号杀死、磁盘满、启动就退、服务不可达、命令缺失。走指数退避，用尽后转环境请示，不该烧返工预算。
 - **空转收回（idle reclaim）**：30 分钟没有任何进展证据就收回这一轮。心跳只证明进程活着，不算进展。
-- **中断续跑（worker resume）**：进程重启/超时打断后自动接上；分支已经动过就写「接续收尾」，不重做。
+- **中断续跑（worker resume）**：进程重启/超时打断后**可以**接上（`settings.workerAutoResume === true` 才开，v0.016.4 起默认关）；分支已经动过就写「接续收尾」，不重做。默认只把 `session-stopped` 事件交给调度，由调度决定重派还是改方案。
 - **环境自检（preflight）**：派工前探一遍项目声明的检查项（文件 / 目录 / http），结论进案卷一行，缺项直接开请示。
 - **等待（waiting）**：卡还在飞、但没有 run —— 在等依赖、等分支、等环境、等人。统计里与「执行中」分开。
 - **停摆告警（stall alert）**：项目连续几小时没有 run 却还有待办，发一条通知，不再靠人偶然发现。

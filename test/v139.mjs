@@ -135,13 +135,52 @@ await t('调度 → 工人：没有 run 时把消息注入下一轮案卷', asyn
   // 派工后会有在跑的 run：先收掉，才能验证"没有 run 时注入下一轮案卷"这条分支
   const live = store.state.tasks[t2.id].activeRunId
   if (live) await domain.endRun(t2.id, 'stopped', { runId: live })
-  const injected = await domain.injectionsFor(t2.id, { kind: 'context' })
-  const before = injected.length
   const res = await dispatcher.handoff(store.state.tasks[t2.id], { to: 'worker', content: '范围加上导出', from: dispatcherAgent.id, kind: 'instruction' })
   assert.ok(res.ok, JSON.stringify(res))
-  const after = await domain.injectionsFor(t2.id, { kind: 'context' })
-  assert.equal(after.length, before + 1, '要注入到下一轮案卷')
-  assert.match(after[after.length - 1].content, /范围加上导出/)
+  // v0.016.4：instruction 仍然是「工人没在跑就带着这条指令重新派工」—— 调度明确要求开工。
+  // 指令走 brief 的 note 直接进案卷（不进注入表：注入按 agentId 过滤，换人派工就会静默丢掉）。
+  assert.notEqual(store.state.tasks[t2.id].activeRunId, null, 'instruction 要重新开工')
+  assert.ok(rt.calls.some((c) => c.kind === 'prompt' && String(c.text || '').includes('范围加上导出')), '指令要随案卷送达，实际投递：' + JSON.stringify(rt.calls.map((c) => c.kind + ':' + String(c.text || c.message || '').slice(0, 80))))
+})
+
+// v0.016.4 回归：卡停在 verifying 时，调度发一句说明**不会**把它拽回 running 再叫醒工人。
+// 线上撞过 5 次（T-052/T-053/T-055/T-057）：调度写「本轮不用再产出任何改动，等验收」，
+// 系统顺手 rework + 派工，工人被叫起来无事可做，巡检 no-diff 再把卡判成连续 3 轮没产出 block 掉。
+let vcard = null
+await t('verifying + 无 run：发消息不动列、不开 run、只排队', async () => {
+  const t3 = await domain.createTask(proj.id, { title: '验收中收到消息', acceptance: ['a'] })
+  vcard = t3
+  await domain.move(t3.id, 'claim', { role: 'human', id: 'web' })
+  await domain.setPlan(t3.id, '计划：只出文档', { role: 'dispatcher', id: dispatcherAgent.id })
+  await domain.move(t3.id, 'plan_ready', { role: 'dispatcher', id: dispatcherAgent.id })
+  await domain.move(t3.id, 'approve_by_dispatcher', { role: 'dispatcher', id: dispatcherAgent.id })
+  await domain.move(t3.id, 'stop', { role: 'worker', id: worker.id }, { stopReport: { summary: '计划文档已交', tests: '未执行（只读计划卡）' } })
+  assert.equal(store.state.tasks[t3.id].column, 'verifying', '前置：卡要停在 verifying')
+  const runsBefore = Object.values(store.state.runs).filter((r) => r.taskId === t3.id).length
+  rt.calls.length = 0
+  const res = await dispatcher.handoff(store.state.tasks[t3.id], { to: 'worker', content: '本轮不用再产出任何改动，等验收', from: dispatcherAgent.id, kind: 'answer' })
+  assert.equal(res.ok, true, JSON.stringify(res))
+  assert.equal(res.queued, true, '要回报「只排队」，实际：' + JSON.stringify(res))
+  assert.equal(store.state.tasks[t3.id].column, 'verifying', '消息不能把卡拽回 running')
+  assert.equal(store.state.tasks[t3.id].activeRunId, null, '不能开新 run')
+  assert.equal(Object.values(store.state.runs).filter((r) => r.taskId === t3.id).length, runsBefore, 'run 数量不该增加')
+  assert.ok(!rt.calls.some((c) => c.kind === 'prompt'), '不能给工人投任何案卷')
+  assert.ok(domain.injectionsFor(t3.id, { kind: 'context' }).some((i) => /本轮不用再产出/.test(i.content)), '消息要留在下一条案卷里')
+})
+
+
+// 同一张卡再来一次，这次是 instruction：该开工，且指令必须进案卷（rework 的派工在 onMoved 里同步发，
+// 文本走 pendingNotes 排给那条 dispatch —— 不走排队的话指令会静默丢掉）。
+await t('verifying + instruction：重新派工，且指令随案卷送达', async () => {
+  rt.calls.length = 0
+  const res = await dispatcher.handoff(store.state.tasks[vcard.id], { to: 'worker', content: '把 §11 补齐再交', from: dispatcherAgent.id, kind: 'instruction' })
+  assert.equal(res.ok, true, JSON.stringify(res))
+  const cur = store.state.tasks[vcard.id]
+  assert.ok(cur.activeRunId, 'instruction 要重新开工')
+  assert.equal(cur.column, 'running', 'rework 之后应当回到执行中')
+  const brief = rt.calls.filter((c) => c.kind === 'prompt').map((c) => String(c.text || '')).join(String.fromCharCode(10))
+  assert.match(brief, /把 §11 补齐再交/)
+  await domain.endRun(vcard.id, 'stopped', { runId: cur.activeRunId })
 })
 
 // ---- D：结构化 Inbox（Phase 2） -------------------------------------------

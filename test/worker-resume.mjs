@@ -37,8 +37,11 @@ const dispatcher = createDispatcher({ domain, runtime: rt, store })
 const project = await domain.ensureProject({ workspacePath: repo, name: 'w' })
 await domain.updateProjectConfig(project.id, { baseBranch: 'main' })
 await domain.ensureAgents(project.id)
-const worker = Object.values(store.state.agents).find((a) => a.role === 'worker')
-await domain.bindSession(worker.id, 'ses-' + worker.id, { state: 'idle' }, { role: 'system' })
+// 每个工人（不只是一个）都要有会话记录：派工会按打分挑人，挑到没绑会话的工位时
+// domain.setSessionState 会抛 'agent has no session'，整条派工链就断在收尾那一行。
+const workers = Object.values(store.state.agents).filter((a) => a.role === 'worker')
+const worker = workers[0]
+for (const w of workers) await domain.bindSession(w.id, 'ses-' + w.id, { state: 'idle' }, { role: 'system' })
 
 let pass = 0
 const fails = []
@@ -59,39 +62,51 @@ async function readyCard(title) {
 }
 
 const c1 = await readyCard('会被中断的卡')
-await t('① 中断（进程重启）→ 自动续跑，开出一条新 run', async () => {
+await t('① 默认（未设置）中断 → 不续跑，只把 run 收成 interrupted', async () => {
   const before = c1.activeRunId
   assert.ok(before, '先要有在跑的 run')
+  prompted.length = 0
   await dispatcher.onSessionEvent(store.state.runs[before].sessionId, { type: 'turn/end', data: { reason: { kind: 'interrupted' } } })
   const cur = store.state.tasks[c1.id]
-  assert.ok(cur.activeRunId, '应当已经续跑')
-  assert.notEqual(cur.activeRunId, before, '续跑要开新 run，而不是复用旧 id')
-  assert.equal(store.state.runs[before].status, 'interrupted')
+  // v0.016.4：中断是**事件**，不是开工许可。默认不许系统自己再派一轮 ——
+  // 那条路会绕过调度「这张卡还该不该做」的判断（线上 T-057 连轴空转就是这么来的）。
+  assert.equal(cur.activeRunId, null, '默认不该自动续跑')
+  assert.equal(store.state.runs[before].status, 'interrupted', 'run 要如实收成 interrupted')
+  assert.ok(!prompted.some((p) => /自动续跑|接续/.test(String((p && p.text) || ''))), '不能偷偷给工人投续跑文案')
 })
 
-await t('② 续跑文案写「接续」而不是从头再来', () => {
+const c2 = await readyCard('打开续跑的卡')
+await t('② 显式打开 workerAutoResume=true → 才续跑，文案写「接续」', async () => {
+  await store.tx((s) => { s.settings.workerAutoResume = true })
+  const before = c2.activeRunId
+  assert.ok(before, '先要有在跑的 run')
+  await dispatcher.onSessionEvent(store.state.runs[before].sessionId, { type: 'turn/end', data: { reason: { kind: 'interrupted' } } })
+  const cur = store.state.tasks[c2.id]
+  assert.ok(cur.activeRunId, '打开开关后应当已经续跑')
+  assert.notEqual(cur.activeRunId, before, '续跑要开新 run，而不是复用旧 id')
   const text = prompted.map((p) => String((p && p.text) || '')).join(NL)
   assert.match(text, /接续/)
 })
 
-const c2 = await readyCard('关掉续跑的卡')
-await t('③ 开关关闭 → 不续跑（与旧行为一致）', async () => {
+const c2b = await readyCard('关掉续跑的卡')
+await t('③ 开关关闭 → 不续跑（与默认一致）', async () => {
   await store.tx((s) => { s.settings.workerAutoResume = false })
-  const before = c2.activeRunId
+  const before = c2b.activeRunId
   await dispatcher.onSessionEvent(store.state.runs[before].sessionId, { type: 'turn/end', data: { reason: { kind: 'interrupted' } } })
-  assert.equal(store.state.tasks[c2.id].activeRunId, null, '关掉就不该偷偷续')
-  await store.tx((s) => { s.settings.workerAutoResume = true })
+  assert.equal(store.state.tasks[c2b.id].activeRunId, null, '关掉就不该偷偷续')
 })
 
 const c3 = await readyCard('人点停止的卡')
-await t('④ 人点「停止生成」→ 不续跑', async () => {
+await t('④ 人点「停止生成」→ 不续跑（开关打开也不续）', async () => {
+  await store.tx((s) => { s.settings.workerAutoResume = true })
   const before = c3.activeRunId
   await dispatcher.onSessionEvent(store.state.runs[before].sessionId, { type: 'turn/end', data: { reason: { kind: 'aborted', reason: { kind: 'user' } } } })
   assert.equal(store.state.tasks[c3.id].activeRunId, null)
 })
 
 const c4 = await readyCard('反复被中断的卡')
-await t('⑤ 连续中断到上限（默认 5）就停，并开一张错误工单', async () => {
+await t('⑤ 打开开关后连续中断到上限（默认 5）就停，并开一张错误工单', async () => {
+  await store.tx((s) => { s.settings.workerAutoResume = true })
   for (let i = 0; i < 6; i += 1) {
     const rid = store.state.tasks[c4.id].activeRunId
     if (!rid) break
@@ -105,6 +120,7 @@ await t('⑤ 连续中断到上限（默认 5）就停，并开一张错误工�
 
 const c5 = await readyCard('已经交了部分活的卡')
 await t('⑥ 分支已前进 → 续跑文案写「接续收尾」', async () => {
+  await store.tx((s) => { s.settings.workerAutoResume = true })
   const wt = store.state.worktrees[c5.id]
   writeFileSync(join(wt.path, 'part.txt'), 'x' + NL)
   sh(wt.path, ['add', '-A']); sh(wt.path, ['commit', '-qm', 'work: 先交一部分'])
