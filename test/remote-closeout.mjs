@@ -1,8 +1,8 @@
 /**
  * v0.005：远程 PR 结束后的本地收口（用户口径）。
  *
- *   - 自动车道（visibility='auto'，不在看板上）：PR 一结束，卡就地结束，不进生命周期管理；
- *   - 人车道：PR 结束后按正常生命周期 —— 合并了照常落 done，被关了开请示等人决定。
+ *   - 自动车道（lane==='issue'）：未合并关闭就地结束；已合并则同步 base 后落 done。
+ *   - 人车道 / 外部 PR：被关了开 decision 请示，卡不动。合并路径不 closePull。
  *
  * 这里只钉**收口逻辑本身**（dispatcher.closeoutRemote），不发网络请求：
  * 事实由同步层收集，收口由调度按车道决定，两层各测各的。
@@ -27,6 +27,10 @@ const { writeFileSync } = await import('node:fs')
 writeFileSync(join(repo, 'a.txt'), 'a' + NL)
 sh(repo, ['add', '-A']); sh(repo, ['commit', '-qm', 'baseline'])
 const headSha = sh(repo, ['rev-parse', 'HEAD']).trim()
+const bare = join(root, 'origin.git')
+sh(root, ['init', '-q', '--bare', '-b', 'main', 'origin.git'])
+sh(repo, ['remote', 'add', 'origin', bare])
+sh(repo, ['push', '-u', 'origin', 'main'])
 
 const store = new Store(join(root, 'flow.json'))
 await store.load()
@@ -50,7 +54,7 @@ async function t(name, fn) {
 }
 
 let seq = 0
-async function mkCard({ visibility = 'board', kind = 'card', number = null, external = false } = {}) {
+async function mkCard({ visibility = 'board', lane = 'human', kind = 'card', number = null, external = false } = {}) {
   seq += 1
   const num = number || seq
   const task = external
@@ -62,6 +66,7 @@ async function mkCard({ visibility = 'board', kind = 'card', number = null, exte
     x.phase = 'merge-ready'
     x.mergeState = 'pending'
     x.visibility = visibility
+    x.lane = lane
     x.kind = kind
     if (!x.external) x.external = null
     x.mergeRequest = { id: 'mr_' + num, headSha, status: 'ready_for_review', reviewVerdict: null, remote: { number: num } }
@@ -72,7 +77,7 @@ async function mkCard({ visibility = 'board', kind = 'card', number = null, exte
 }
 
 // ---- ① 自动车道 + 远程已合并 ----
-const autoMerged = await mkCard({ visibility: 'auto' })
+const autoMerged = await mkCard({ visibility: 'auto', lane: 'issue' })
 const r1 = await dispatcher.closeoutRemote({ taskId: autoMerged.id, number: 1, merged: true, mergeCommitSha: headSha, source: 'local' })
 await t('① 自动车道 + 远程已合并：卡收口为 done/merged', () => {
   assert.equal(r1.ok, true, JSON.stringify(r1))
@@ -88,7 +93,7 @@ await t('①b 幂等：再收一次是 already，不会重放迁移', async () =
 })
 
 // ---- ② 自动车道 + 远程被关（未合并）----
-const autoClosed = await mkCard({ visibility: 'auto' })
+const autoClosed = await mkCard({ visibility: 'auto', lane: 'issue' })
 const r2 = await dispatcher.closeoutRemote({ taskId: autoClosed.id, number: 2, merged: false, state: 'closed', source: 'local' })
 await t('② 自动车道 + 远程被关：卡就地结束（cancelled / remote-ended）', () => {
   assert.equal(r2.ok, true, JSON.stringify(r2))
@@ -131,10 +136,10 @@ await t('④ 人车道 + 远程被关：卡不动，开请示由人决定', () =
 // ---- ⑤ 外部 PR 卡：远程被关也按同样规则（merged 走收口，closed 走车道差异）----
 const ext = await mkCard({ visibility: 'auto', external: true, number: 9 })
 const r5 = await dispatcher.closeoutRemote({ taskId: ext.id, number: 9, merged: false, state: 'closed', source: 'external' })
-await t('⑤ 外部 PR 卡（自动车道）+ 远程被关：就地结束，并把 external.state 记成 closed', () => {
-  assert.equal(r5.ok, true, JSON.stringify(r5))
+await t('⑤ 外部 PR 被关：卡不动、开 decision 请示，external.state=closed', () => {
+  assert.equal(r5.needsHuman, true, JSON.stringify(r5))
   const cur = store.state.tasks[ext.id]
-  assert.equal(cur.column, 'cancelled')
+  assert.equal(cur.column, 'merging', '外部 PR 被关不替人结束卡')
   assert.equal(cur.external.state, 'closed')
 })
 

@@ -119,10 +119,11 @@ await t('④ 合并后那条一次性抓取分支被删掉', () => {
   assert.equal(branches, '', 'external/pr-1 应该已经不在了（实际 ' + branches + '）')
 })
 
-await t('⑤ 远程没配时关 PR 失败不影响本地结果（只落评论）', () => {
+await t('⑤ 合并成功后不自动关闭远程 PR（RT-02）', () => {
   const comments = (store.state.task_comments || []).filter((c) => c.taskId === t1.id).map((c) => c.content || '')
   const text = comments.join(NL)
-  assert.match(text, /关闭远程 PR #1 失败|已关闭外部 PR #1|关闭外部 PR/)
+  assert.match(text, /已合并到 main/)
+  assert.doesNotMatch(text, /关闭远程 PR #1|已关闭外部 PR #1|关闭外部 PR/)
 })
 
 await t('⑥ createExternalPrTask 幂等：同一个 PR 再入站一次不建第二张卡', async () => {
