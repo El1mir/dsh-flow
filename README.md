@@ -1,8 +1,29 @@
 # dsh-flow
 
-当前版本：**v0.016**（`package.json` = `0.0.16`；npm 版本号不允许前导零，故展示名与字段值分开）
+当前版本：**v0.1.0**（package.json = 0.1.0）
 
-数据 schema：**16**（v0.012–v0.015 是 15、v0.011 是 14、v0.002 是 12、v0.001 是 11；首次加载自动迁移，见 CHANGELOG）
+数据 schema：**17**（首次加载自动迁移；schema 17 不可由旧代码读取，升级前请备份 flow.json）
+
+## 两种事务模式
+
+| 模式 | 行为 |
+| --- | --- |
+| 本地模式（remoteMode=false） | 分支、检出、验收和本地合并；不发 issue/评论、不建远程 PR、不拉远程数据。 |
+| 远程模式（remoteMode=true） | 要求 remote 坐标、pushRemote=true 与 provider merge API；issue/评论双向同步，受控卡必须使用真实 forge PR 合并。 |
+
+开启远程模式前配置 remoteMode、remote.kind/owner/repo、pushRemote=true，再按 provider 能力开启 recordIssues / recordPulls。条件不满足时策略会退回本地模式并给出原因，不会静默出网。
+
+## 远程 PR 与自动车道
+
+远程卡按“卡分支 → 远程 PR → review → forge merge → 合并后校验”推进；冲突回派原工人，分支保护、权限、head 变化和未知服务失败进入 blocked 工单，不做本地兜底。远程 PR 保持 merged 状态。
+
+远程 issue 在 autoLane 开启后会建为 issue 车道卡，进入自动车道看板并走完整生命周期。外部 PR 默认需要人工批准；只有 externalPr.autoMerge=true 与项目 autoMerge=true 同时开启时才自动审核合并。工单承载需要人拍板的长对话，消息区供人和两车道调度沟通。
+
+完整设计、模式矩阵、工单分类和消息契约见 [docs/远程事务设计.md](docs/远程事务设计.md)；实施决策见 [docs/adr/0007-remote-pr-authority.md](docs/adr/0007-remote-pr-authority.md)。
+
+## 升级与限制
+
+升级前复制运行时 flow.json。迁移是单向 schema 17；旧项目会按旧 remote/同步配置推导 remoteMode，但 pushRemote=false 仍不会启用远程 PR。Gitea merge 能力本版本未验证；不提交 GitHub review/APPROVE，不同步 inline review comments，远程合并后的回滚通过后续 revert 完成。
 
 DSH 插件：调度台工作台。把「需求 → 拆解 → 派工 → 工人 goal 自循环 → 停止分类 → 验收 → PR 审核 → 合并」做成一条带事务的记录流。
 

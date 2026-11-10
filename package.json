@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-flow",
-  "version": "0.0.20",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "index.js",
@@ -25,7 +25,7 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/view-model.mjs && node test/merge-guards.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs && node test/worktree-reuse.mjs && node test/autolane.mjs && node test/deliver-branch.mjs && node test/external-merge.mjs && node test/external-conflict.mjs && node test/remote-closeout.mjs && node test/session-error.mjs && node test/grill-stuck.mjs && node test/rewind.mjs && node test/dispatcher-resume.mjs && node test/schema13.mjs && node test/pr-snapshot.mjs && node test/unit-shared.mjs && node test/rollup-delivery.mjs && node test/unit-parallel.mjs && node test/inbox-reply.mjs && node test/inbox-blocks.mjs && node test/inbox-mailbox.mjs && node test/anti-loop.mjs && node test/env-files.mjs && node test/handoff.mjs && node test/progress-budget.mjs && node test/acceptance-kinds.mjs && node test/infra-class.mjs && node test/no-output.mjs && node test/worker-resume.mjs && node test/wait-vs-run.mjs && node test/stall.mjs && node test/artifact-deps.mjs && node test/preflight.mjs && node test/state-split.mjs",
+    "test": "node test/schema17.mjs && node test/remote-policy.mjs && node test/smoke.mjs && node test/client.mjs && node test/render.mjs && node test/tool-schema.mjs && node test/align-state.mjs && node test/token-usage.mjs && node test/v138.mjs && node test/v139.mjs && node test/v1391.mjs && node test/comment-delivery.mjs && node test/skill-delivery.mjs && node test/skill-ui.mjs && node test/integration.mjs && node test/reconcile.mjs && node test/worktree-intent.mjs && node test/worktree-reclaim.mjs && node test/reconcile-tick.mjs && node test/merge-state.mjs && node test/view-model.mjs && node test/merge-guards.mjs && node test/automation-guards.mjs && node test/panel-visibility.mjs && node test/remote-closepull.mjs && node test/external-ingest.mjs && node test/view-contract.mjs && node test/worktree-reuse.mjs && node test/autolane.mjs && node test/deliver-branch.mjs && node test/external-merge.mjs && node test/external-conflict.mjs && node test/remote-closeout.mjs && node test/session-error.mjs && node test/grill-stuck.mjs && node test/rewind.mjs && node test/dispatcher-resume.mjs && node test/schema13.mjs && node test/pr-snapshot.mjs && node test/unit-shared.mjs && node test/rollup-delivery.mjs && node test/unit-parallel.mjs && node test/inbox-reply.mjs && node test/inbox-blocks.mjs && node test/inbox-mailbox.mjs && node test/anti-loop.mjs && node test/env-files.mjs && node test/handoff.mjs && node test/progress-budget.mjs && node test/acceptance-kinds.mjs && node test/infra-class.mjs && node test/no-output.mjs && node test/worker-resume.mjs && node test/wait-vs-run.mjs && node test/stall.mjs && node test/artifact-deps.mjs && node test/preflight.mjs && node test/state-split.mjs && node test/remote-merge-api.mjs && node test/remote-merge.mjs && node test/pr-open-remote.mjs && node test/comment-routing.mjs && node test/external-approval.mjs && node test/panel-lanes.mjs && node test/inbox-categories.mjs && node test/lane-messages.mjs && node test/client-remote.mjs && node test/external-auto.mjs",
     "test:smoke": "node test/smoke.mjs",
     "test:client": "node test/client.mjs",
     "test:render": "node test/render.mjs",
@@ -76,9 +76,9 @@
     "test:stall": "node test/stall.mjs",
     "test:artifact-deps": "node test/artifact-deps.mjs",
     "test:preflight": "node test/preflight.mjs",
-    "test:state-split": "node test/state-split.mjs"
+    "test:state-split": "node test/state-split.mjs && node test/schema17.mjs && node test/remote-policy.mjs && node test/remote-merge-api.mjs && node test/remote-merge.mjs && node test/pr-open-remote.mjs && node test/comment-routing.mjs && node test/external-approval.mjs && node test/panel-lanes.mjs && node test/inbox-categories.mjs && node test/lane-messages.mjs && node test/client-remote.mjs && node test/external-auto.mjs"
   },
-  "description": "DSH flow workbench v1.0: human/issue dual-lane scheduler, chief-dispatcher-worker supervision, scope-aware dispatch, context budget compaction, /flow read-only dispatch mode and a native overview panel.",
+  "description": "DSH flow workbench: local/remote transaction modes, forge PR merge, dual-lane scheduler, lane tickets and messages.",
   "files": [
     "index.js",
     "client.js",

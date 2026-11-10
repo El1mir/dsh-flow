@@ -259,6 +259,7 @@ await t('④ headSha 变化：approval 重置 pending、approvalHandledAt 清空
   assert.equal(cur.mergeReason, 'head-mismatch')
   const tickets = inboxOf(taskId)
   assert.ok(tickets.some((x) => /head/i.test(x.topic + x.problem + x.decisionNeeded)), '要开一条 head 变更的工单：' + JSON.stringify(tickets.map((x) => x.topic)))
+  assert.ok(tickets.every((x) => ['approval', 'acceptance', 'external-pr', 'blocked', 'decision', 'info'].includes(x.category)), '工单 category 必须属于现行 taxonomy')
 })
 
 // ---------------------------------------------------------------------------

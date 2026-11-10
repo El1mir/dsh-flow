@@ -1669,6 +1669,7 @@ await t('重复 webhook 202 duplicate', async () => {
   // ---- 出站：本地卡推成远程 issue，重复推不会再建一次 ----------------
   const sp = await domain.ensureProject({ workspacePath: join(dir, 'repo-sync'), name: 'sync-demo' })
   await domain.updateProjectConfig(sp.id, {
+    remoteMode: true,
     recordIssues: true,
     pushRemote: true,
     remote: { kind: 'github', baseUrl: 'https://api.github.com', owner: 'El1mir', repo: 'demo' },
@@ -3045,6 +3046,7 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
   const { createSyncEngine } = await import('../lib/sync-engine.js')
   const tp = await domain.ensureProject({ workspacePath: join(dir, 'repo-sync-v127'), name: 'syncv127' })
   await domain.updateProjectConfig(tp.id, {
+    remoteMode: true,
     recordIssues: true,
     pushRemote: true,
     remote: { kind: 'github', owner: 'El1mir', repo: 'demo', token: null, useGhCli: true },
@@ -4440,10 +4442,11 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
     assert.equal(b.id, a.id, '返回的是同一条')
     const open = domain.openInboxFor(tk.id).filter((x) => x.kind === 'decision')
     assert.equal(open.length, 1, '只有一条未归档')
-    // info 不去重
+    // RT-04：info 也按 [taskId, category, refKey] 去重，避免同一通知在 tick 中重复堆积。
     const i1 = await domain.askHuman({ taskId: tk.id, kind: 'info', topic: '知情1' }, actor)
     const i2 = await domain.askHuman({ taskId: tk.id, kind: 'info', topic: '知情1' }, actor)
-    assert.notEqual(i1.id, i2.id, 'info 允许多发')
+    assert.equal(i2.id, i1.id, '同卡同类 info 应复用未归档工单')
+    assert.equal(i2.duplicate, true, '重复 info 应标记 duplicate')
   })
 
   await t('v1.37 Inbox 工单：追问进同一对话线、info 可标已读、归档拒绝追问', async () => {

@@ -138,6 +138,16 @@ await t('同键 open 工单不新建：更新 updatedAt/replyCount；换 pull �
   assert.equal(after.duplicate, undefined)
 })
 
+await t('dedupeRef 让同一周期幂等、不同周期可重开工单', async () => {
+  const first = await ask({ topic: '周期告警 1', category: 'info', dedupeRef: 'cycle:1' })
+  const same = await ask({ topic: '周期告警 1 重试', category: 'info', dedupeRef: 'cycle:1' })
+  const next = await ask({ topic: '周期告警 2', category: 'info', dedupeRef: 'cycle:2' })
+  assert.equal(same.id, first.id)
+  assert.equal(same.duplicate, true)
+  assert.notEqual(next.id, first.id)
+  assert.equal(next.duplicate, undefined)
+})
+
 await t('回复和追问增加 replyCount/updatedAt，不改任务列', async () => {
   const item = await ask({ topic: '回复计数', category: 'decision', refs: [{ kind: 'issue', id: 'iss-reply', label: '回复用' }] })
   const column = store.state.tasks[task.id].column

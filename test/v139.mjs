@@ -195,7 +195,7 @@ await t('askHuman：asks 必填校验（缺 question / why / choice 选项不够
   assert.equal(autoAsk.asks.length, 1, '缺 asks 时要从 decisionNeeded 兜底生成')
   assert.equal(autoAsk.asks[0].type, 'confirm')
   // 连 decisionNeeded 都没有 → 一条 ask 都生成不出来 → 拒
-  await assert.rejects(() => domain.askHuman({ taskId: inboxTask.id, kind: 'decision', topic: 'x', problem: 'p', decisionNeeded: '' }), /不能为空/)
+  await assert.rejects(() => domain.askHuman({ projectId: proj.id, kind: 'decision', topic: 'x', problem: 'p', decisionNeeded: '' }), /不能为空/)
 })
 
 const structured = await t('askHuman：结构化字段完整落库（asks / context / impactIfNoAnswer）', async () => {
@@ -241,7 +241,7 @@ await t('replyInbox：答案结构化落库，状态转 answered', async () => {
 
 await t('兼容：只传 options 的老调用方，自动转成一条选择题 ask', async () => {
   const legacy = await domain.askHuman({
-    taskId: inboxTask.id, kind: 'decision', topic: '老的选项式请示', problem: 'p', decisionNeeded: 'd',
+    projectId: proj.id, kind: 'decision', topic: '老的选项式请示', problem: 'p', decisionNeeded: 'd',
     options: [{ key: 'A', label: '甲', detail: '代价 x', recommended: true }, { key: 'B', label: '乙', detail: '代价 y' }],
   }, { role: 'dispatcher', id: 'ag_y' })
   assert.equal(legacy.asks.length, 1)

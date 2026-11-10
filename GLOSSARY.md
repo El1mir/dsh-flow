@@ -46,8 +46,17 @@
 | **remote-ended** | `cancelled` 的一个 phase：自动车道的卡因为远程 PR 结束而自动收尾，区别于人主动 `cancel` | `lib/core.js` `TRANSITIONS.remote_ended` |
 | **冲突解决轮（resolver round）** | 外部 PR 与本 base 打架时，卡上落 `external.resolver=true` + `external.baseRef`，派工后工人从 `external/pr-<n>` 拉分支、把 base 合进来解冲突 | `lib/dispatch.js` `dispatch()` 守卫 / `buildExternalConflictPacket` / `mergeLocked` |
 | **headSha 锁定** | 外部 PR 建卡时记下的提交；他后来推新提交就判 `blocked/head-mismatch` | `lib/dispatch.js` `mergeLocked` |
-| **自动车道（autoLane）** | 只管「接管远程 issue → 建卡 → 派工」的开关；未设置时回退 `autoDispatch` | `lib/scheduler.js` `laneAutoOn` |
-| **可见性（visibility）** | 逐卡 `board` / `auto`。`auto` 不上看板，进自动车道折叠区 | `task.visibility`；`lib/http.js` `setTaskVisibility` |
+| **自动车道（autoLane）** | 控制远程 issue 是否进入 issue 车道并自动推进完整生命周期（包括派工与验收/合并策略）；未设置时回退 `autoDispatch` | `lib/scheduler.js` `laneAutoOn` |
+| **可见性（visibility）** | 逐卡 `board` / `auto`。`auto` 不进入人车道投影，但会进入自动车道看板 | `task.visibility`；`lib/http.js` `setTaskVisibility` |
+
+## 2.13 远程事务（v0.1）
+
+- **remoteMode**：项目级本地/远程事务总开关。关闭时同步与远程 PR 能力不出网；开启但前置条件不足时 policy 退回 local 并说明原因。
+- **landing**：合并执行层；本地模式调用本地集成合并，远程模式调用 forge merge API，并统一处理 head、保护规则、冲突与合并后校验。
+- **外部 PR**：不是本系统 flow 分支创建的远程 PR；入站后成为受人工批准约束的 external-pr 卡，或在两个自动开关同时打开时进入 issue 车道自动审核。
+- **工单（ticket）**：human_inbox 中围绕一个事务的长对话，按 approval、acceptance、external-pr、blocked、decision、info 分类，可引用卡、issue、PR。
+- **消息区（lane message）**：项目级单频道，供人和 human/issue 两车道调度沟通；人发送可唤醒目标调度，agent/system 消息只落库。
+- **自动车道卡**：lane=issue 的一等任务；自动车道看板展示全部 issue 车道卡，visibility=auto 只表示不进入人车道投影。
 
 ## 3. 记录与监督
 

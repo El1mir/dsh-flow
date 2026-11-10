@@ -1,3 +1,12 @@
+## v0.1.0：远程事务与双车道
+
+- 新增 remoteMode：本地模式完全不出网；远程模式以 GitHub PR 为合并唯一入口，按卡开分支、开远程 PR、forge merge，冲突/权限/保护规则失败会阻塞并开工单。
+- 新增 lib/remote-policy.js、lib/landing.js、lib/domain/lane-messages.js；自动车道把远程 issue 建为完整卡并进入自动车道看板。
+- 新增外部 PR 入站、人工批准与可选自动审核，工单分类/引用/长对话，以及两个车道调度之间的消息区。
+- schema 16 → 17：迁移会推导旧项目 remoteMode，补齐外部 PR approval、工单 category/refs 与 PR 远程镜像；迁移前请备份 flow.json。
+- 行为变化：远程合并后 PR 保持 merged，不再由本地流程 close；本地模式不创建 issue/评论/PR，也不拉取远程数据。
+- 已知限制：Gitea merge API 尚未验证；不提交 GitHub review/APPROVE；不做 inline review comments；远程合并后只能通过后续 revert 回滚；fork PR 替代 PR 尚未实现。
+
 ## v0.016.4（package 0.0.20）：消息只是消息 —— 系统不再替调度把工人叫起来
 
 线上看到的现象：工人交完活自己停了，系统转头又把它叫起来干一轮，干完 0 改动，如此循环。

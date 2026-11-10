@@ -26,8 +26,8 @@ async function t(name, fn) {
 }
 
 // ---- A：schema 常量与迁移表 --------------------------------------------------
-await t('SCHEMA_VERSION 是 16，且 MIGRATIONS[12..15] 都在', () => {
-  assert.equal(SCHEMA_VERSION, 16)
+await t('SCHEMA_VERSION 是 17，且 MIGRATIONS[12..16] 都在', () => {
+  assert.equal(SCHEMA_VERSION, 17)
   assert.equal(typeof MIGRATIONS[13], 'function', 'v0.008 的 unitMode 迁移要挂在 13 上')
   assert.equal(typeof MIGRATIONS[12], 'function')
   assert.equal(typeof MIGRATIONS[14], 'function', 'v0.012 的 blocks/readAt 迁移要挂在 14 上')
@@ -48,7 +48,7 @@ await t('schema 12→13：补 kind/visibility/external/branchFrom/integrationBra
   }))
   const st = new Store(f)
   await st.load()
-  assert.equal(st.state.schemaVersion, 16)
+  assert.equal(st.state.schemaVersion, 17)
   const t1 = st.state.tasks['T-1']
   assert.equal(t1.kind, 'card')
   assert.equal(t1.visibility, 'board')
@@ -198,7 +198,7 @@ await t('迁移 15：老卡补吞吐默认值、验收档位与 acceptance 下�
   const st = new Store(f)
   await st.load()
   const one = st.state.tasks['T-1']
-  assert.equal(st.state.schemaVersion, 16)
+  assert.equal(st.state.schemaVersion, 17)
   assert.equal(one.partial, false)
   assert.deepEqual(one.remainder, [])
   assert.equal(one.noProgressRuns, 0)
