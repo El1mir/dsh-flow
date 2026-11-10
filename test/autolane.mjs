@@ -107,13 +107,25 @@ async function ingestMirror(project, remoteId, extra = {}) {
 const tasksOf = (project) => Object.values(store.state.tasks).filter((x) => x.projectId === project.id)
 const taskForRemote = (project, remoteId) => tasksOf(project).find((x) => x.remote && String(x.remote.issueNumber) === String(remoteId)) || null
 
+// RT-06：建卡还要 policy.canIngestIssues（远程模式 + recordIssues）。
+// 车道开关仍是被测变量；远程入站只是前置，不代替 autoLane / since / live 断言。
+const REMOTE_ON = {
+  remoteMode: true,
+  pushRemote: true,
+  recordIssues: true,
+  remote: { kind: 'github', owner: 'acme', repo: 'flow' },
+}
+async function enableIngest(project, extra = {}) {
+  await domain.updateProjectConfig(project.id, { ...REMOTE_ON, ...extra }, { role: 'human' })
+}
+
 // ---------------------------------------------------------------------------
 // ① 升级兼容：autoLane 未设置 + autoDispatch:true → 照旧建卡（本票唯一的线上破坏点）
 // ---------------------------------------------------------------------------
 await t('① autoLane 未设置 + autoDispatch:true → 照旧建卡（升级不能让人停止建卡）', async () => {
   const project = await freshProject('c09-compat')
   // 老项目就是这样：只有 autoDispatch，配置里根本没有 autoLane 这个键。
-  await domain.updateProjectConfig(project.id, { autoDispatch: true }, { role: 'human' })
+  await enableIngest(project, { autoDispatch: true })
   assert.equal(store.state.projects[project.id].config.autoLane, undefined, '前置：autoLane 必须是未设置')
   await seedMirror(project, '9101')
   await ingestMirror(project, '9101')
@@ -122,6 +134,9 @@ await t('① autoLane 未设置 + autoDispatch:true → 照旧建卡（升级不
   const task = taskForRemote(project, '9101')
   assert.ok(task, '卡要建出来')
   assert.equal(task.lane, 'issue')
+  assert.equal(task.kind, 'card')
+  assert.equal(String(task.remote.issueNumber), '9101')
+  assert.equal(task.visibility, 'auto', 'showAutoCards 不参与入站可见性')
   // 镜像要回写到 taskId：不回写的话下一轮会把同一条 issue 再建一张卡
   const mirror = domain.mirrorList(project.id).find((m) => String(m.remoteId) === '9101')
   assert.equal(mirror.taskId, task.id)
@@ -132,7 +147,7 @@ await t('① autoLane 未设置 + autoDispatch:true → 照旧建卡（升级不
 // ---------------------------------------------------------------------------
 await t('② autoLane:false + autoDispatch:true → 不建卡（新开关压住旧开关）', async () => {
   const project = await freshProject('c09-off')
-  await domain.updateProjectConfig(project.id, { autoDispatch: true, autoLane: false }, { role: 'human' })
+  await enableIngest(project, { autoDispatch: true, autoLane: false })
   await seedMirror(project, '9102')
   await ingestMirror(project, '9102')
   const report = await sched.tick()
@@ -147,7 +162,7 @@ await t('② autoLane:false + autoDispatch:true → 不建卡（新开关压住�
 // ---------------------------------------------------------------------------
 await t('③ autoLane:true + autoDispatch:false → 建卡但不补位派工', async () => {
   const project = await freshProject('c09-no-dispatch')
-  await domain.updateProjectConfig(project.id, { autoLane: true, autoDispatch: false }, { role: 'human' })
+  await enableIngest(project, { autoLane: true, autoDispatch: false })
   await seedMirror(project, '9103')
   await ingestMirror(project, '9103')
   const report = await sched.tick()
@@ -165,7 +180,7 @@ const SINCE = '2026-01-01T00:00:00Z'
 
 await t('④ sync.since 之后出现的 issue 建卡', async () => {
   const project = await freshProject('c09-since-after')
-  await domain.updateProjectConfig(project.id, { autoLane: true, sync: { since: SINCE } }, { role: 'human' })
+  await enableIngest(project, { autoLane: true, sync: { since: SINCE } })
   await seedMirror(project, '9104')
   // 样本用 Z 结尾的 ISO：Gitea / GitHub 都是这个形状（带时区偏移的比法见 ticket 风险）
   await ingestMirror(project, '9104', { createdAt: '2026-06-01T00:00:00Z' })
@@ -176,7 +191,7 @@ await t('④ sync.since 之后出现的 issue 建卡', async () => {
 
 await t('⑤ sync.since 之前的 issue 不建卡，但镜像落库', async () => {
   const project = await freshProject('c09-since-before')
-  await domain.updateProjectConfig(project.id, { autoLane: true, sync: { since: SINCE } }, { role: 'human' })
+  await enableIngest(project, { autoLane: true, sync: { since: SINCE } })
   await seedMirror(project, '9105')
   await ingestMirror(project, '9105', { createdAt: '2025-03-01T00:00:00Z' })
   const report = await sched.tick()
@@ -195,7 +210,7 @@ await t('⑤ sync.since 之前的 issue 不建卡，但镜像落库', async () =
 // ---------------------------------------------------------------------------
 await t('⑥ issue 没有 createdAt → 仍然建卡（宁多建，不静默丢）', async () => {
   const project = await freshProject('c09-no-created')
-  await domain.updateProjectConfig(project.id, { autoLane: true, sync: { since: SINCE } }, { role: 'human' })
+  await enableIngest(project, { autoLane: true, sync: { since: SINCE } })
   await seedMirror(project, '9106')
   await ingestMirror(project, '9106')   // 不带 createdAt
   const report = await sched.tick()
@@ -222,19 +237,29 @@ async function post(action, args) {
   return { status: res.status, body: await res.json() }
 }
 
-await t('⑦ recordIssues:false 时 autoLane:true 仍被 http 层拒绝（防误配）', async () => {
+await t('⑦ 未开远程模式时写 autoLane 被拒绝，配置不变', async () => {
   const project = await freshProject('c09-http-off')
   const res = await post('project.config', { projectId: project.id, patch: { autoLane: true } })
-  assert.equal(res.body.result.ok, false, '纯本地看板模式不该能开 autoLane')
-  assert.match(String(res.body.result.message), /纯本地看板|记录 issue/)
+  assert.equal(res.status, 400, 'autoLane 是远程模式键，未开远程模式应 400')
+  assert.match(String(res.body.error || ''), /先开启远程模式/)
   assert.equal(store.state.projects[project.id].config.autoLane, undefined, '被拒时配置不能变')
 })
 
-await t('⑧ recordIssues:true + autoLane:true → http 允许写入（解耦生效）', async () => {
+await t('⑧ 远程模式 + recordIssues 后 http 才允许 autoLane', async () => {
   const project = await freshProject('c09-http-on')
-  await post('project.config', { projectId: project.id, patch: { recordIssues: true } })
-  const res = await post('project.config', { projectId: project.id, patch: { autoLane: true } })
-  assert.equal(res.body.result.ok !== false, true, JSON.stringify(res.body.result).slice(0, 200))
+  const remote = {
+    remoteMode: true,
+    pushRemote: true,
+    remote: { kind: 'github', owner: 'acme', repo: 'flow' },
+  }
+  const opened = await post('project.config', { projectId: project.id, patch: remote })
+  assert.equal(opened.status, 200, JSON.stringify(opened.body).slice(0, 240))
+  const denied = await post('project.config', { projectId: project.id, patch: { autoLane: true, recordIssues: false } })
+  assert.equal(denied.status, 400)
+  assert.match(String(denied.body.error || ''), /没有 issue 入站/)
+  assert.notEqual(store.state.projects[project.id].config.autoLane, true, '没有 issue 入站时不能写成 true')
+  const res = await post('project.config', { projectId: project.id, patch: { recordIssues: true, autoLane: true } })
+  assert.equal(res.status, 200, JSON.stringify(res.body).slice(0, 240))
   assert.equal(store.state.projects[project.id].config.autoLane, true)
 })
 
@@ -257,25 +282,28 @@ await t('⑨ remoteCapabilities 含 canClosePull / canListPulls（按 provider�
 // ---------------------------------------------------------------------------
 // ⑩ 入站建卡带 visibility（rf-04 写侧补漏）
 // ---------------------------------------------------------------------------
-await t('⑩ autoLane 建的卡默认 visibility=auto（不上看板），showAutoCards 可覆盖', async () => {
+await t('⑩ autoLane 建的卡 visibility=auto，showAutoCards 不改可见性', async () => {
   const project = await freshProject('c09-visibility')
-  await domain.updateProjectConfig(project.id, { autoLane: true }, { role: 'human' })
+  await enableIngest(project, { autoLane: true })
   await seedMirror(project, '9110')
   await ingestMirror(project, '9110')
   await sched.tick()
   const auto = taskForRemote(project, '9110')
   assert.ok(auto, '卡要建出来')
   assert.equal(auto.visibility, 'auto', '自动车道的卡默认不上看板')
+  assert.equal(auto.kind, 'card')
+  assert.equal(auto.lane, 'issue')
 
-  // 覆盖位：人明确要「在板上盯着自动卡」时，建出的卡要落在 board
   const project2 = await freshProject('c09-visibility-on')
-  await domain.updateProjectConfig(project2.id, { autoLane: true, showAutoCards: true }, { role: 'human' })
+  await enableIngest(project2, { autoLane: true, showAutoCards: true })
   await seedMirror(project2, '9111')
   await ingestMirror(project2, '9111')
   await sched.tick()
   const shown = taskForRemote(project2, '9111')
   assert.ok(shown, '卡要建出来')
-  assert.equal(shown.visibility, 'board')
+  assert.equal(shown.visibility, 'auto', 'showAutoCards 不再把入站卡改成 board')
+  assert.equal(shown.kind, 'card')
+  assert.equal(String(shown.remote.issueNumber), '9111')
 })
 
 // ---------------------------------------------------------------------------
@@ -283,7 +311,7 @@ await t('⑩ autoLane 建的卡默认 visibility=auto（不上看板），showAu
 // ---------------------------------------------------------------------------
 await t('⑪ webhook 的 live:true 绕过 since（刚发生的事天然 fresh）', async () => {
   const project = await freshProject('c09-live')
-  await domain.updateProjectConfig(project.id, { autoLane: true, sync: { since: SINCE } }, { role: 'human' })
+  await enableIngest(project, { autoLane: true, sync: { since: SINCE } })
   await seedMirror(project, '9112')
   // webhook 归一化会把 created_at 丢掉，但即使带上了，live:true 也必须放行
   await ingestMirror(project, '9112', { createdAt: '2025-01-01T00:00:00Z', live: true })
@@ -297,10 +325,107 @@ await t('⑪ webhook 的 live:true 绕过 since（刚发生的事天然 fresh）
 // ---------------------------------------------------------------------------
 await t('⑫ recordPulls-only（recordIssues:false）也能开 autoMerge', async () => {
   const project = await freshProject('c09-pulls-only')
-  await post('project.config', { projectId: project.id, patch: { recordPulls: true } })
+  const opened = await post('project.config', {
+    projectId: project.id,
+    patch: {
+      remoteMode: true,
+      pushRemote: true,
+      remote: { kind: 'github', owner: 'acme', repo: 'flow' },
+      recordPulls: true,
+      recordIssues: false,
+    },
+  })
+  assert.equal(opened.status, 200, JSON.stringify(opened.body).slice(0, 240))
   const res = await post('project.config', { projectId: project.id, patch: { autoMerge: true } })
-  assert.equal(res.body.result.ok !== false, true, JSON.stringify(res.body.result).slice(0, 200))
+  assert.equal(res.status, 200, JSON.stringify(res.body).slice(0, 240))
   assert.equal(store.state.projects[project.id].config.autoMerge, true)
+})
+
+const acceptanceOpen = (taskId) => (store.state.human_inbox || []).filter((x) => x.taskId === taskId && x.category === 'acceptance' && x.status === 'open')
+
+async function placeVerifying(project, extra = {}) {
+  const task = await domain.createTask(project.id, {
+    title: extra.title || '待验收',
+    lane: extra.lane || 'issue',
+    visibility: 'auto',
+    origin: 'auto',
+  }, { role: 'system', id: 'test' })
+  await store.tx((s) => {
+    Object.assign(s.tasks[task.id], {
+      column: 'verifying',
+      phase: 'awaiting-acceptance',
+      lane: extra.lane || 'issue',
+      mergeState: extra.mergeState === undefined ? 'none' : extra.mergeState,
+    })
+  })
+  return store.state.tasks[task.id]
+}
+
+await t('⑬ autoAccept 关且 acceptanceTickets 开：verifying 只开一张验收工单，重复 tick 不新建', async () => {
+  const project = await freshProject('rt06-accept-ticket')
+  await domain.updateProjectConfig(project.id, { autoAccept: false, acceptanceTickets: true, autoDispatch: false }, { role: 'human' })
+  const task = await placeVerifying(project)
+  await sched.tick()
+  const first = acceptanceOpen(task.id)
+  assert.equal(first.length, 1, '应有且仅有一张 open acceptance 工单')
+  assert.equal(first[0].topic, '卡 ' + task.id + ' 待验收')
+  assert.equal(first[0].kind, 'decision')
+  assert.ok((first[0].asks || []).some((a) => (a.choices || []).some((c) => c.value === 'accept') && (a.choices || []).some((c) => c.value === 'rework')))
+  assert.equal(store.state.tasks[task.id].column, 'verifying', '工单不能移动卡')
+  const before = first[0].replyCount || 0
+  await sched.tick()
+  const second = acceptanceOpen(task.id)
+  assert.equal(second.length, 1, '重复触发不能再开一张')
+  assert.equal(second[0].id, first[0].id)
+  assert.ok((second[0].replyCount || 0) > before, '重复触发应更新 replyCount')
+})
+
+await t('⑭ autoAccept 开或 acceptanceTickets 关或人车道：不开验收工单', async () => {
+  const on = await freshProject('rt06-no-ticket-auto')
+  await domain.updateProjectConfig(on.id, { autoAccept: true, acceptanceTickets: true, autoDispatch: false }, { role: 'human' })
+  const a = await placeVerifying(on)
+  await sched.tick()
+  assert.equal(acceptanceOpen(a.id).length, 0, 'autoAccept 走现有自动验收，不开验收工单')
+
+  const off = await freshProject('rt06-no-ticket-flag')
+  await domain.updateProjectConfig(off.id, { autoAccept: false, acceptanceTickets: false, autoDispatch: false }, { role: 'human' })
+  const b = await placeVerifying(off)
+  await sched.tick()
+  assert.equal(acceptanceOpen(b.id).length, 0)
+
+  const human = await freshProject('rt06-no-ticket-human')
+  await domain.updateProjectConfig(human.id, { autoAccept: false, acceptanceTickets: true, autoDispatch: false }, { role: 'human' })
+  const c = await placeVerifying(human, { lane: 'human' })
+  await sched.tick()
+  assert.equal(acceptanceOpen(c.id).length, 0, '验收工单只给 issue 车道')
+})
+
+await t('⑮ 验收通过归档工单；打回保留并更新，工单仍不移动卡', async () => {
+  const project = await freshProject('rt06-accept-archive')
+  await domain.updateProjectConfig(project.id, { autoAccept: false, acceptanceTickets: true, autoDispatch: false }, { role: 'human' })
+  const accepted = await placeVerifying(project, { title: '要收下' })
+  await sched.tick()
+  assert.equal(acceptanceOpen(accepted.id).length, 1)
+  await domain.move(accepted.id, 'accept', { role: 'human', id: 'human:test' })
+  await sched.tick()
+  const archived = (store.state.human_inbox || []).filter((x) => x.taskId === accepted.id && x.category === 'acceptance')
+  assert.equal(archived.length, 1)
+  assert.equal(archived[0].status, 'archived')
+  assert.equal(acceptanceOpen(accepted.id).length, 0)
+
+  const reworked = await placeVerifying(project, { title: '要打回' })
+  await sched.tick()
+  const opened = acceptanceOpen(reworked.id)
+  assert.equal(opened.length, 1)
+  const replyBefore = opened[0].replyCount || 0
+  await domain.move(reworked.id, 'rework', { role: 'human', id: 'human:test' })
+  assert.equal(store.state.tasks[reworked.id].column, 'running')
+  await sched.tick()
+  const kept = (store.state.human_inbox || []).filter((x) => x.taskId === reworked.id && x.category === 'acceptance')
+  assert.equal(kept.length, 1)
+  assert.equal(kept[0].status, 'open', '打回不归档')
+  assert.ok((kept[0].replyCount || 0) > replyBefore, '打回后要更新工单')
+  assert.equal(store.state.tasks[reworked.id].column, 'running', '更新工单不能把卡移走')
 })
 
 // ---------------------------------------------------------------------------
