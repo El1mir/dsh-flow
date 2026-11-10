@@ -198,20 +198,20 @@ await t('人批准：tick 只交接一次，不直接 merge', async () => {
   assert.equal(store.state.tasks[task.id].external.approval.by, 'human')
 })
 
-await t('rejected：不 merge、不自动重开；cancel 守卫挡住系统取消', async () => {
-  merges.length = 0
+await t('rejected：人确认拒绝后收口为 remote-ended，不 merge、不关闭远程 PR', async () => {
+  merges.length = 0; closeouts.length = 0
   const p = await project('ext-reject', { autoMerge: true, externalPr: { autoMerge: true } })
   const task = await externalCard(p, 38, { lane: 'human' })
   await domain.approveExternal(task.id, { decision: 'rejected', by: 'human' }, { role: 'human', id: 'human:test' })
-  const before = store.state.tasks[task.id].column
   await sched.tick()
   const after = store.state.tasks[task.id]
   assert.equal(merges.length, 0)
-  assert.notEqual(after.column, 'done')
-  assert.equal(after.column, before, 'cancel 只有 human 角色，系统不能绕过守卫')
+  assert.equal(closeouts.length, 0, '拒绝本地卡不应关闭作者的远程 PR')
+  assert.equal(after.column, 'cancelled')
+  assert.equal(after.phase, 'remote-ended')
   assert.equal(after.external.approval.status, 'rejected')
   await sched.tick()
-  assert.equal(store.state.tasks[task.id].column, before, '不自动重开、也不每拍再取消')
+  assert.equal(store.state.tasks[task.id].column, 'cancelled', '同一拒绝事实幂等收口')
 })
 
 await t('closed：走 closeout，不 merge', async () => {
