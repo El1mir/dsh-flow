@@ -83,7 +83,12 @@ const fetchImpl = async (url) => {
 
 async function project(name, config = {}) {
   const p = await domain.ensureProject({ workspacePath: join(dir, 'repo-' + name), name })
-  await domain.updateProjectConfig(p.id, { ...config }, { role: 'human' })
+  // RT-03 入站闸门是 policyFor.canIngestPulls：有坐标的项目要开 remoteMode+pushRemote，
+  // 否则 recordPulls 单独不再入站。显式 remoteMode:false 的调用方仍可盖掉。
+  await domain.updateProjectConfig(p.id, {
+    ...(config.remote && config.remote.owner ? { pushRemote: true, remoteMode: true } : {}),
+    ...config,
+  }, { role: 'human' })
   return store.state.projects[p.id]
 }
 
