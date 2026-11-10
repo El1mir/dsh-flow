@@ -40,7 +40,8 @@ t('client 读的每个 cfg 键都必须被 panel 投影（白名单漏键 = 界�
 t('投影里必须有这几组核心配置（删了会让设置页读不到）', () => {
   const projected = panelConfigKeys()
   for (const k of ['recordIssues', 'recordPulls', 'autoDispatch', 'autoAccept', 'autoMerge',
-    'baseBranch', 'mergeStrategy', 'pushRemote', 'maxInFlightPerProject']) {
+    'baseBranch', 'mergeStrategy', 'pushRemote', 'maxInFlightPerProject',
+    'remoteMode', 'externalPr', 'acceptanceTickets']) {
     assert.ok(projected.includes(k), '缺投影键 ' + k)
   }
 })
@@ -55,7 +56,9 @@ t('任务可见性的写入口与读入口同时存在', () => {
   const toolsSrc = readFileSync(new URL('lib/tools.js', root), 'utf8')
   assert.ok(/setTaskVisibility/.test(httpSrc), '写入口 http.setTaskVisibility')
   assert.ok(/visibility/.test(toolsSrc), 'flow_task_update 要能改 visibility')
-  assert.ok(/visibility !== 'auto'/.test(panelSrc), 'board 视图要按 visibility 过滤')
+  assert.ok(/lanes:\s*\{/.test(panelSrc) && /human:/.test(panelSrc) && /issue:/.test(panelSrc), 'panel 要投影 lanes.human / lanes.issue')
+  assert.ok(/onHumanBoard/.test(panelSrc) && /onIssueBoard/.test(panelSrc), '两条车道各自过滤，issue 的 auto 卡仍在 lanes.issue')
+  assert.ok(/\bvisibility\b/.test(panelSrc), 'visibility 仍要投影')
 })
 
 t('交付态与合并态在 panel 上有投影（界面才有东西可贴）', () => {

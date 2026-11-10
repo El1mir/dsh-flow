@@ -19,10 +19,14 @@ const base = {
   taskId: task.id, kind: 'decision', topic: '要你定', problem: '有分歧', decisionNeeded: '选一个',
   asks: [{ key: 'q1', question: '选哪个', why: '只有你能定', type: 'choice', choices: [{ value: 'A', label: '甲' }, { value: 'B', label: '乙' }] }],
 }
-// 每张票换个发送人 id：askHuman 的幂等键含 actor（同卡同类型同发起人会直接返回旧票）。
-// 这不是绕过业务规则，而是让「一次测试要造 N 张票」与「真实里同一调度不会重复开单」两件事互不干扰。
+// RT-04 去重键是 [taskId, category, refKey]，不再含 actor。
+// 造多张票时给每张一个不同的 issue 引用，否则同键 open 工会被并成一条。
 let seq = 0
-const mk = (patch) => { seq += 1; return domain.askHuman(Object.assign({}, base, patch), { role: 'dispatcher', id: 'ag_dsp_' + seq }) }
+const mk = (patch) => {
+  seq += 1
+  const refs = patch.refs || [{ kind: 'issue', id: 'iss-' + seq, label: '#' + seq }]
+  return domain.askHuman(Object.assign({}, base, patch, { refs }), { role: 'dispatcher', id: 'ag_dsp_' + seq })
+}
 
 let pass = 0
 const fails = []
