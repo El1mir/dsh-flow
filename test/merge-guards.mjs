@@ -11,7 +11,7 @@
  *      第 4 次（attempts>3）直接 blockMerge，不回派；
  *   ③ dispatch() 对 column=merging 的卡返回 skipped:'merging'（缺陷 2 的另一半：
  *      没有列守卫时工人在合并列被叫起来干活，stop 必被状态机拒）；
- *   ④ openPr 的远程 PR 闸门是 recordPulls，不再是 recordIssues（缺陷 3：一个字段管两件事）。
+ *   ④ openPr 的远程 PR 闸门是 policyFor().canUseRemotePr，不再是 recordPulls（RT-02）。
  *
  * 为什么①的"没调用 git"用 rebaseAttempts 不变当证据：rebaseAttempts 只在 mergeLocked
  * 走到 git 的 needs-rebase 分支才 ++；它没变就说明连 mergeLocked 都没进。
@@ -273,9 +273,14 @@ await t('needs-rebase 第 4 次（attempts>3）走 blockMerge，且不再回派'
 })
 
 // ---------- ④ openPr 的远程 PR 闸门 ----------
+// RT-02：recordPulls 单独不再出网。本地模式零网络；远程模式先 listOpenPulls 再 createPull。
 
-await t('openPr 在 recordPulls:true 且 recordIssues:false 时仍然建远程 PR', async () => {
+await t('openPr 本地模式不因 recordPulls 出网；远程模式才 list+createPull', async () => {
   const repo = mkRepo('repo-remote')
+  const bare = join(dir, 'repo-remote.git')
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', bare], { stdio: 'ignore' })
+  sh(repo, ['remote', 'add', 'origin', bare])
+  sh(repo, ['push', '-u', 'origin', 'main'])
   const p2 = await domain.ensureProject({ workspacePath: repo, name: 'remote' })
   await store.tx((s) => {
     s.projects[p2.id].config = {
@@ -284,23 +289,36 @@ await t('openPr 在 recordPulls:true 且 recordIssues:false 时仍然建远程 P
       pushRemote: true,
       recordPulls: true,
       recordIssues: false,
+      remoteMode: false,
       remote: { kind: 'github', owner: 'o', repo: 'r' },
     }
   })
-  const id = (await domain.createTask(p2.id, { title: '远程 PR 走 recordPulls' })).id
+  const id = (await domain.createTask(p2.id, { title: '远程 PR 闸门' })).id
   const seen = []
   const realFetch = globalThis.fetch
   globalThis.fetch = async (url, init) => {
-    seen.push({ url: String(url), method: init && init.method })
-    return { ok: true, status: 201, text: async () => JSON.stringify({ number: 7, html_url: 'https://github.com/o/r/pull/7', state: 'open' }) }
+    const method = (init && init.method) || 'GET'
+    seen.push({ url: String(url), method })
+    const body = method === 'GET' ? [] : { number: 7, html_url: 'https://github.com/o/r/pull/7', state: 'open' }
+    return { ok: method === 'GET' || true, status: method === 'GET' ? 200 : 201, json: async () => body, text: async () => JSON.stringify(body) }
   }
   try {
+    const local = await dispatcher.openPr(store.state.tasks[id], {})
+    assert.equal(local.ok, true, JSON.stringify(local))
+    assert.equal(seen.length, 0, '本地模式不该出网：' + JSON.stringify(seen))
+    assert.equal(local.remote, null)
+    await store.tx((s) => { s.projects[p2.id].config.remoteMode = true })
+    const branch = 'flow/' + id.replace(/[^A-Za-z0-9._-]/g, '-')
+    sh(repo, ['checkout', '-qb', branch])
+    writeFileSync(join(repo, 'remote.txt'), 'r' + NL)
+    sh(repo, ['add', '-A']); sh(repo, ['commit', '-qm', 'remote branch'])
+    sh(repo, ['checkout', '-q', 'main'])
     const out = await dispatcher.openPr(store.state.tasks[id], {})
     assert.equal(out.ok, true, JSON.stringify(out))
-    assert.equal(seen.length, 1, '应当只打一次建 PR 的请求')
-    assert.match(seen[0].url, /\/repos\/o\/r\/pulls$/)
-    assert.equal(seen[0].method, 'POST')
-    assert.equal(out.remotePr.number, 7)
+    assert.ok(seen.some((s) => s.method === 'GET' && /\/pulls\?/.test(s.url)), '远程模式先列已有 PR')
+    const post = seen.find((s) => s.method === 'POST' && /\/repos\/o\/r\/pulls$/.test(s.url))
+    assert.ok(post, '远程模式才 POST 建 PR：' + JSON.stringify(seen))
+    assert.equal(out.remote.number, 7)
     const pr = store.state.pull_requests[out.pr.id]
     assert.equal(pr.remote.number, 7, '远程身份要挂到本地 PR 上')
   } finally {
