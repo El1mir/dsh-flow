@@ -321,6 +321,15 @@ window.__ModuleLoader__.load({
             : null,
           noMerge: t.noMerge === true,
           noMergeReason: t.noMergeReason || '',
+          visibility: t.visibility || 'board',
+          mergeState: t.mergeState || null,
+          mergeReason: t.mergeReason || null,
+          kind: t.kind || 'card',
+          external: t.external || null,
+          branchFrom: t.branchFrom || null,
+          remotePr: t.remotePr || (t.external && t.external.number
+            ? { number: t.external.number, url: t.external.url || null, state: t.external.state || null }
+            : null),
           updatedAt: t.updatedAt || null,
         }
         if (!byColumn[t.column]) byColumn[t.column] = []
@@ -353,7 +362,51 @@ window.__ModuleLoader__.load({
           workspaceId: project.workspaceId || null, chiefSessionId: project.chiefSessionId || null,
           config: project.config || {},
         },
-        lanes: { human: laneOf('human'), issue: laneOf('issue') },
+        lanes: (function () {
+          var hiddenChild = function (t) { return t.hiddenOnBoard === true && !!t.parentId }
+          var onHumanBoard = function (t) {
+            if (hiddenChild(t)) return false
+            if ((t.visibility || 'board') === 'auto') return false
+            var lane = t.lane || 'human'
+            return lane === 'human' || (lane === 'issue' && (t.visibility || 'board') === 'board')
+          }
+          var onIssueBoard = function (t) {
+            if (hiddenChild(t)) return false
+            return (t.lane || 'human') === 'issue'
+          }
+          var cardById = {}
+          COLUMNS.forEach(function (c) {
+            (byColumn[c] || []).forEach(function (card) { cardById[card.id] = card })
+          })
+          var laneBoard = function (list) {
+            var by = {}
+            COLUMNS.forEach(function (c) { by[c] = [] })
+            list.forEach(function (t) {
+              var card = cardById[t.id]
+              if (!card) return
+              if (!by[t.column]) by[t.column] = []
+              by[t.column].push(card)
+            })
+            return {
+              columns: COLUMNS.map(function (id) {
+                return { id: id, title: COLUMN_TITLES[id] || id, count: (by[id] || []).length }
+              }),
+              tasks: by,
+              count: list.length,
+              blocked: list.filter(function (t) { return t.blocked }).length,
+              needsHuman: list.filter(function (t) {
+                if (t.blocked) return true
+                if (t.column === 'verifying') return true
+                var approval = t.external && t.external.approval
+                return !!(approval && approval.status === 'pending')
+              }).length,
+            }
+          }
+          return {
+            human: Object.assign({}, laneOf('human'), laneBoard(tasks.filter(onHumanBoard))),
+            issue: Object.assign({}, laneOf('issue'), laneBoard(tasks.filter(onIssueBoard))),
+          }
+        })(),
         columns: COLUMNS.map(function (id) {
           return { id: id, title: COLUMN_TITLES[id] || id, count: (byColumn[id] || []).length }
         }),
@@ -1487,6 +1540,7 @@ window.__ModuleLoader__.load({
               setForm(function (prev) { var next = Object.assign({}, prev); next.token = ''; return next })
               setNotice((res && res.ok === false) ? '保存失败：' + (res.message || res.reason || res.error || '') : '已保存。下一轮同步（60s 内）就会开始。')
             })
+            .catch(function (err) { setBusy(''); setNotice('保存失败：' + ((err && err.message) || err)) })
         }
 
         var detect = function () {
@@ -1565,6 +1619,7 @@ window.__ModuleLoader__.load({
             input('repo', '仓库名', 'BiliNote')),
           form.kind === 'gitea' ? input('baseUrl', 'API 地址', 'https://git.example.com') : null,
           input('token', 'token（留空 = 用已保存的）', 'ghp_… 或 gho_…', 'password'),
+          h('div', { className: 'flowv-hint' }, (project.config && project.config.remote && project.config.remote.hasToken) ? '已保存 token（不回显明文）' : '未保存 token'),
           input('webhookSecret', 'webhook secret（可选）', '推送入站才需要；默认走轮询'),
           h('div', { className: 'flowv-grid2' },
             select('pushRemote', '同步方向', [['0', '只同步进来'], ['1', '双向（写回 issue / PR / 评论）']]),
@@ -1688,6 +1743,10 @@ window.__ModuleLoader__.load({
         var autoLaneState = React.useState(false)
         var autoLaneOpen = autoLaneState[0]
         var setAutoLaneOpen = autoLaneState[1]
+        // RT-05：看板页签。必须和其他 hook 待在 early return 之前。
+        var boardLaneState = React.useState('human')
+        var boardLane = boardLaneState[0]
+        var setBoardLane = boardLaneState[1]
 
         var settingsState = React.useState({ tab: 'general', catalog: null, global: {}, loading: false })
         /**
@@ -1957,6 +2016,28 @@ window.__ModuleLoader__.load({
             var rr = window.prompt('重开原因（写进审计历史）', preset)
             if (!rr) return null
             return act('task.move', { taskId: task.id, action: 'reopen', payload: { reason: rr } }).then(after)
+          }
+          if (action === 'merge') {
+            return act('task.merge', { taskId: task.id }).then(function (res) {
+              if (!res) return null
+              setNotice('已请求合并')
+              return after()
+            })
+          }
+          if (action === 'approve_external') {
+            return act('task.approveExternal', { taskId: task.id, decision: 'approve' }).then(function (res) {
+              if (!res) return null
+              setNotice('已记下批准。调度会审核并合并，这里不会直接合并。')
+              return after()
+            })
+          }
+          if (action === 'reject_external') {
+            var note = window.prompt('拒绝说明（可选）') || ''
+            return act('task.approveExternal', { taskId: task.id, decision: 'reject', note: note }).then(function (res) {
+              if (!res) return null
+              setNotice('已拒绝。调度会审核，这里不会直接合并。')
+              return after()
+            })
           }
           if (action === 'cancel') {
             if (!window.confirm('确认取消该任务？')) return null
@@ -2505,6 +2586,22 @@ window.__ModuleLoader__.load({
               : '#' + t.remote.issueNumber)
           }
           if (t.pullRequestStatus) row3Parts.push('PR·' + t.pullRequestStatus)
+          row3Parts.push((t.lane || 'human') === 'issue' ? '自动车道' : '人车道')
+          if (t.visibility) row3Parts.push(t.visibility)
+          if (t.mergeState) row3Parts.push(t.mergeState)
+          if (t.remotePr && t.remotePr.number) {
+            var prHref = /^https?:\/\//i.test(String(t.remotePr.url || '')) ? String(t.remotePr.url) : ''
+            row3Parts.push(prHref
+              ? h('a', { key: 'rpr', className: 'flowv-chip-link', href: prHref, target: '_blank', rel: 'noreferrer', onClick: function (e) { e.stopPropagation() } }, 'PR #' + t.remotePr.number)
+              : ('PR #' + t.remotePr.number))
+          }
+          if (t.external && t.external.approval && t.external.approval.status) row3Parts.push('审批 ' + t.external.approval.status)
+          if (t.visibility === 'auto') {
+            row3Parts.push(h(Btn, {
+              key: 'pull', small: true,
+              onClick: function (e) { if (e) e.stopPropagation(); act('task.visibility', { taskId: t.id, visibility: 'board' }) },
+            }, '拉上人板'))
+          }
           var titleHover = (t.title || '') + (t.blocked ? '\n阻塞：' + t.blocked.reason : '') + (pg && pg.next ? '\n→ ' + pg.next : '')
           return h('div', {
             className: 'flowv-task' + (t.blocked ? ' blocked' : ''),
@@ -2535,8 +2632,20 @@ window.__ModuleLoader__.load({
           return n > 0 ? n : 8
         }
 
+        var lanePack = function (key) {
+          var lane = v.lanes && v.lanes[key]
+          if (!lane || !lane.columns || !lane.tasks || typeof lane.tasks !== 'object' || Array.isArray(lane.tasks)) return null
+          return lane
+        }
+        var humanPack = lanePack('human')
+        var issuePack = lanePack('issue')
+        var hasLaneBoards = !!(humanPack && issuePack)
+        var activeLane = boardLane === 'issue' ? 'issue' : 'human'
+        var activePack = hasLaneBoards ? (activeLane === 'issue' ? issuePack : humanPack) : null
+        var boardCols = activePack ? activePack.columns : (activeLane === 'issue' ? [] : (v.columns || []))
+        var boardTasks = activePack ? activePack.tasks : (activeLane === 'issue' ? {} : (v.tasks || {}))
         var columnEl = function (col) {
-          var all = (v.tasks[col.id] || [])
+          var all = (boardTasks[col.id] || [])
           var size = pageSize()
           // 窗口式分页：offset = "从最新那张往后跳过多少张"。
           // 服务端已按"后移入的排前面"排好（columnAt 倒序），所以：
@@ -2710,12 +2819,24 @@ var silentRead = function (inboxId) {
           // 为什么两栏：工单是逐条处理的，一次只该读一条。原来把 N 张工单的全文铺在同一列里，
           // 人滚到第三条就忘了第一条要答什么 —— 那不是「信息多」，是「没有焦点」。
           var TABS = [
-            { id: 'todo', label: '待我回' },
-            { id: 'replied', label: '已回复' },
+            { id: 'all', label: '全部' },
+            { id: 'approval', label: '待批准' },
+            { id: 'acceptance', label: '待验收' },
+            { id: 'external-pr', label: '外部 PR' },
+            { id: 'blocked', label: '阻塞' },
+            { id: 'decision', label: '决定' },
             { id: 'notices', label: '通知' },
-            { id: 'archived', label: '归档' },
+            { id: 'archived', label: '已归档' },
           ]
           var tab = inbox.tab || 'todo'
+          var pane = inbox.pane || 'tickets'
+          var catOf = function (x) {
+            if (x && x.category) return x.category
+            if (!x) return ''
+            if (x.kind === 'info' || x.kind === 'error') return 'info'
+            if (x.kind === 'risk') return 'approval'
+            return x.kind || ''
+          }
           var q = inbox.q || ''
           var isNotice = function (x) { return x.kind === 'info' || x.kind === 'error' }
           var isActive = function (x) { return x.status !== 'archived' }
@@ -2723,12 +2844,18 @@ var silentRead = function (inboxId) {
           var pool = all.filter(function (x) {
             if (tab === 'archived') return !isActive(x)
             if (!isActive(x)) return false
-            if (tab === 'notices') return isNotice(x)
-            if (isNotice(x)) return false
-            // 刚回复的那一条：即便已经变成「已答复」，也留在当前 tab 里，
-            // 否则人一回信就被弹到另一张工单，读到一半的上下文当场丢掉。
+            if (tab === 'notices') return isNotice(x) || catOf(x) === 'info'
+            if (tab === 'all') return true
             if (x.id === keepId) return true
-            return tab === 'todo' ? x.status === 'open' : x.status === 'answered'
+            // todo 是打开抽屉时的默认（不是芯片）：排除通知，保住「只有通知时右栏为空」的路径。
+            if (tab === 'todo') return !isNotice(x) && x.status === 'open'
+            if (tab === 'approval') return catOf(x) === 'approval'
+            if (tab === 'acceptance') return catOf(x) === 'acceptance'
+            if (tab === 'external-pr') return catOf(x) === 'external-pr'
+            if (tab === 'blocked') return catOf(x) === 'blocked'
+            if (tab === 'decision') return catOf(x) === 'decision'
+            if (tab === 'replied') return x.status === 'answered' && !isNotice(x)
+            return !isNotice(x)
           })
           var counts = inbox.counts || {}
           var countOf = function (id) {
@@ -2799,11 +2926,15 @@ var silentRead = function (inboxId) {
               h('span', { className: 'flowv-mail-dot', 'aria-hidden': 'true' }),
               h('div', { className: 'flowv-mail-row-main' },
                 h('div', { className: 'flowv-mail-row-top' },
-                  h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
+                  h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, x.category || INBOX_KIND_LABEL[x.kind] || x.kind),
                   h('span', { className: 'flowv-mail-row-time' }, dayTime(x.updatedAt || x.createdAt))),
                 h('span', { className: 'flowv-mail-row-title' }, x.topic || '(无标题)'),
                 h('div', { className: 'flowv-mail-row-meta' },
                   x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
+                  (Array.isArray(x.refs) ? x.refs : []).slice(0, 4).map(function (ref, i) {
+                    return h('span', { key: 'ref' + i, className: 'flowv-mono' }, (ref.kind || 'ref') + ':' + (ref.id || ref.label || ''))
+                  }),
+                  h('span', null, '回复 ' + ((x.replies && x.replies.length) || x.replyCount || 0)),
                   asks.length ? h('span', null, answeredOf(x) + '/' + asks.length) : null,
                   x.id === (inbox.keep || '') ? h('span', { className: 'flowv-mail-row-keep' }, x.status === 'archived' ? '已归档' : '刚回复') : (x.status === 'answered' ? h('span', null, '已回') : null),
                   x.status === 'archived' ? h('span', null, '归档') : null)))
@@ -3391,8 +3522,115 @@ var silentRead = function (inboxId) {
               inbox.loading && !pool.length
                 ? h('div', { className: 'flowv-loading' }, '载入中…')
                 : (pool.length ? pool.map(rowEl) : h('div', { className: 'flowv-hint' }, tab === 'todo' ? '没有等你回的工单。' : '这里没有内容。'))))
+          var safeHref = function (url) {
+            var s = String(url || '').trim()
+            return /^https?:\/\//i.test(s) ? s : ''
+          }
+          var externalTicketEl = function (x) {
+            if (catOf(x) !== 'external-pr' && x.kind !== 'external-pr') return null
+            var pr = x.externalPr || x.pull || {}
+            var href = safeHref(pr.url || x.url)
+            return h('div', { className: 'flowv-hint' },
+              href ? h('a', { href: href, target: '_blank', rel: 'noreferrer' }, 'PR ' + (pr.number || x.ref || '')) : h('span', null, 'PR ' + (pr.number || '')),
+              pr.author ? h('span', null, ' · ' + pr.author) : null,
+              pr.headRepo ? h('span', null, ' · ' + pr.headRepo) : null,
+              pr.headSha ? h('span', { className: 'flowv-mono' }, ' · ' + String(pr.headSha).slice(0, 8)) : null,
+              h('div', null, '审批：' + ((pr.approval && pr.approval.status) || x.approval || 'pending')),
+              h('div', null, '调度会审核并合并，这里不会直接合并。'),
+              h('div', { className: 'flowv-actions' },
+                h(Btn, { small: true, variant: 'primary', onClick: function () {
+                  act('task.approveExternal', { taskId: x.taskId, decision: 'approve' })
+                } }, '批准合并'),
+                h(Btn, { small: true, variant: 'danger', onClick: function () {
+                  act('task.approveExternal', { taskId: x.taskId, decision: 'reject' })
+                } }, '拒绝')))
+          }
+          var acceptanceTicketEl = function (x) {
+            if (catOf(x) !== 'acceptance') return null
+            return h('div', { className: 'flowv-hint' },
+              '验收留在卡片抽屉，工单里只回复、不改状态。',
+              x.taskId ? h(Btn, { small: true, onClick: function () { openDrawer(x.taskId) } }, '打开卡片') : null)
+          }
+          var messagePane = function () {
+            var seeded = (v.laneMessages && Array.isArray(v.laneMessages.items)) ? v.laneMessages.items : []
+            var messages = Array.isArray(inbox.messages) ? inbox.messages : seeded
+            var taskRefs = []
+            Object.keys(boardTasks || {}).forEach(function (col) {
+              (boardTasks[col] || []).forEach(function (t) {
+                if (t && t.id) taskRefs.push({ kind: 'task', id: t.id, label: t.title || t.id })
+              })
+            })
+            return h('div', { className: 'flowv-mail', key: 'lane-messages' },
+              h('aside', { className: 'flowv-mail-side' },
+                h('div', { className: 'flowv-mail-list' },
+                  messages.length ? messages.map(function (m) {
+                    var author = (m.from && (m.from.name || m.from.kind)) || '未知'
+                    var lane = (m.to && m.to.lane) || m.to || ''
+                    return h('div', { key: m.id, className: 'flowv-mail-row' },
+                      h('div', { className: 'flowv-mail-row-top' },
+                        h('b', null, author),
+                        h('span', null, String(lane)),
+                        h('span', { className: 'flowv-mail-row-time' }, dayTime(m.createdAt))),
+                      h('div', { className: 'flowv-msg-tx' }, String(m.body || '')),
+                      h('div', null, m.deliveredAt ? ('已投递 ' + dayTime(m.deliveredAt)) : '未投递'),
+                      m.replyTo ? h('div', { className: 'flowv-mono' }, '回复 ' + m.replyTo) : null,
+                      (m.refs || []).map(function (ref, i) {
+                        var href = safeHref(ref.url)
+                        var label = (ref.kind || 'ref') + ':' + (ref.label || ref.id || '')
+                        return href
+                          ? h('a', { key: 'mref' + i, href: href, target: '_blank', rel: 'noreferrer' }, label)
+                          : h('span', { key: 'mref' + i, className: 'flowv-mono' }, label)
+                      }))
+                  }) : h('div', { className: 'flowv-hint' }, '还没有车道消息'))),
+              h('section', { className: 'flowv-mail-main' },
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '发给'),
+                  h('select', {
+                    className: 'flowv-select', value: inbox.msgTo || 'all',
+                    onChange: function (e) { setInbox(Object.assign({}, inbox, { msgTo: e.target.value })) },
+                  }, h('option', { value: 'human' }, 'human'), h('option', { value: 'issue' }, 'issue'), h('option', { value: 'all' }, 'all'))),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '引用'),
+                  h('select', {
+                    className: 'flowv-select', value: '',
+                    onChange: function (e) {
+                      var id = e.target.value
+                      if (!id) return
+                      var hit = taskRefs.filter(function (r) { return r.id === id })[0]
+                      var refs = (inbox.msgRefs || []).concat(hit ? [hit] : [])
+                      setInbox(Object.assign({}, inbox, { msgRefs: refs.slice(0, 8) }))
+                    },
+                  }, h('option', { value: '' }, '选一张卡'), taskRefs.slice(0, 40).map(function (r) {
+                    return h('option', { key: r.id, value: r.id }, r.id + ' ' + r.label)
+                  }))),
+                h('textarea', {
+                  className: 'flowv-textarea', rows: 4, value: inbox.msgBody || '',
+                  placeholder: '写给车道的消息。发送不保证叫醒调度员。',
+                  onChange: function (e) { setInbox(Object.assign({}, inbox, { msgBody: e.target.value })) },
+                }),
+                h(Btn, { small: true, variant: 'primary', onClick: function () {
+                  act('lane.message.post', {
+                    projectId: v.project.id,
+                    body: inbox.msgBody || '',
+                    to: inbox.msgTo || 'all',
+                    refs: inbox.msgRefs || [],
+                    replyTo: inbox.replyTo || null,
+                  }).then(function () { return act('lane.message.list', { projectId: v.project.id }) })
+                    .then(function (res) {
+                      var items = res && res.items
+                      setInbox(function (prev) {
+                        return Object.assign({}, prev || {}, { messages: Array.isArray(items) ? items : (prev && prev.messages), msgBody: '' })
+                      })
+                    })
+                } }, '发送')))
+          }
           var mainEl = h('section', { className: 'flowv-mail-main' },
-            selected ? (isNotice(selected) ? infoDetailEl(selected) : detailEl(selected)) : emptyEl)
+            selected
+              ? h('div', null,
+                externalTicketEl(selected),
+                acceptanceTicketEl(selected),
+                isNotice(selected) ? infoDetailEl(selected) : detailEl(selected))
+              : emptyEl)
 
           return h('div', { className: 'flowv-sheet-stack', key: 'inbox-stack' },
             h('div', { className: 'flowv-sheet-layer is-top', style: { zIndex: 240 } },
@@ -3405,9 +3643,27 @@ var silentRead = function (inboxId) {
                 h('div', { className: 'flowv-drawer-head' },
                   h(Btn, { small: true, onClick: close }, '← 看板'),
                   h('b', null, 'Inbox'),
+                  h('button', {
+                    key: 'pane-tickets', type: 'button',
+                    className: 'flowv-mail-tab' + (pane === 'tickets' ? ' on' : ''),
+                    onClick: function (e) { e.stopPropagation(); setInbox(Object.assign({}, inbox, { pane: 'tickets' })) },
+                  }, '工单'),
+                  h('button', {
+                    key: 'pane-messages', type: 'button',
+                    className: 'flowv-mail-tab' + (pane === 'messages' ? ' on' : ''),
+                    onClick: function (e) {
+                      e.stopPropagation()
+                      setInbox(Object.assign({}, inbox, { pane: 'messages' }))
+                      act('lane.message.list', { projectId: v.project.id }).then(function (res) {
+                        var items = res && res.items
+                        if (!Array.isArray(items)) return
+                        setInbox(function (prev) { return Object.assign({}, prev || {}, { pane: 'messages', messages: items }) })
+                      })
+                    },
+                  }, '消息'),
                   h(Chip, { tone: (counts.open || 0) > 0 ? 'bad' : 'info' }, (counts.open || 0) + ' 条待答复'),
                   h('div', { className: 'flowv-spacer' })),
-                h('div', { className: 'flowv-mail' }, sideEl, mainEl))))
+                pane === 'messages' ? messagePane() : h('div', { className: 'flowv-mail' }, sideEl, mainEl))))
         }
         // ---- 渲染：详情层（v1.39 全屏 + 多层） --------------------------------
         /**
@@ -3490,7 +3746,15 @@ var silentRead = function (inboxId) {
               b(t.noMerge || isUnit ? '验收通过 → 完成' : '验收通过 → 合并', 'accept', 'primary')
               b('返工', 'rework')
             }
+            var remoteOn = !!(v.project && v.project.config && v.project.config.remoteMode)
+            var ext = t.external && typeof t.external === 'object' ? t.external : {}
+            var pendingExt = ext.approval && ext.approval.status === 'pending' && (t.kind === 'external-pr' || ext.number)
+            if (pendingExt) {
+              b('批准合并', 'approve_external', 'primary')
+              b('拒绝', 'reject_external', 'danger')
+            }
             if (t.column === 'merging' && !isUnit) {
+              b(remoteOn ? '远程合并（forge PR）' : '合并', 'merge', 'primary')
               // v1.30：没有 PR 快照时直接点「审核通过」只会得到「没有 PR 快照，无法审核」。
               // 与其让人猜，不如把该做的那一步摆出来。
               if (!t.mergeRequest) b('① 开 PR 快照', 'pr_open', 'primary')
@@ -3786,7 +4050,16 @@ var silentRead = function (inboxId) {
                       ['阶段', task.phase || '—'],
                       ['版本', 'v' + (task.version || 0)],
                       ['优先级', task.priority || 'medium'],
-                      ['车道', task.lane === 'issue' ? 'issue 自动' : '人直派'],
+                      ['车道', task.lane === 'issue' ? '自动车道' : '人车道'],
+                      ['可见性', task.visibility || 'board'],
+                      task.branchFrom ? ['branchFrom', task.branchFrom] : null,
+                      (task.external && task.external.url && /^https?:\/\//i.test(String(task.external.url)))
+                        ? ['远程 PR', h('a', { href: String(task.external.url), target: '_blank', rel: 'noreferrer' }, '#' + (task.external.number || '') + (task.external.author ? ' · ' + task.external.author : '') + (task.external.headRepo ? ' · ' + task.external.headRepo : ''))]
+                        : (task.external && task.external.number ? ['远程 PR', '#' + task.external.number] : null),
+                      task.external && task.external.approval ? ['external.approval', task.external.approval.status || '—'] : null,
+                      task.mergeRequest && task.mergeRequest.conflictFiles && task.mergeRequest.conflictFiles.length
+                        ? ['冲突文件', task.mergeRequest.conflictFiles.join('、') + ' · 重新派工']
+                        : null,
                       ['负责人', task.assignee ? agentName(task.assignee) : '—'],
                       ['计划', 'rev ' + ((task.plan && task.plan.revision) || 0) + (((task.plan && task.plan.approvedRevision) ? ' · 已批 rev ' + task.plan.approvedRevision : ''))],
                       d.worktree ? ['worktree', h('span', { className: 'flowv-mono' }, d.worktree.branch || d.worktree.path)] : null,
@@ -4016,7 +4289,20 @@ var silentRead = function (inboxId) {
 
         var renderSettings = function () {
           var cfg = (project && project.config) || {}
-          var setCfg = function (patch) { return act('project.config', { projectId: project.id, patch: patch }) }
+          var setCfg = function (patch) {
+            return act('project.config', { projectId: project.id, patch: patch }).then(function (res) {
+              if (res && res.ok === false) settingsNotice(res.message || res.reason || res.error || '保存失败')
+              if (!res) settingsNotice('配置未保存（服务端守卫拒绝，见上方提示）')
+              return res
+            })
+          }
+          var remoteReasonLabel = function (reason) {
+            if (reason === 'missing-remote') return '缺 remote 坐标（owner/repo）'
+            if (reason === 'merge-unsupported') return '当前 forge 不支持合并'
+            if (reason === 'push-remote-off') return '未开启 pushRemote'
+            if (reason === 'remote-mode-off') return '远程模式关闭'
+            return reason || '未知原因'
+          }
           var setAgent = function (agent, patch) {
             return act('agent.upsert', Object.assign({ projectId: project.id, id: agent.id }, patch))
           }
@@ -4122,6 +4408,56 @@ var silentRead = function (inboxId) {
             var grillSkill = cfg.grillSkill || 'grilling'
             var grillNames = skillNames.indexOf(grillSkill) < 0 ? [grillSkill].concat(skillNames) : skillNames
             body = h('div', null,
+              h('div', { className: 'flowv-field' },
+                h('label', null, '远程模式（remoteMode）'),
+                h('select', {
+                  className: 'flowv-select', defaultValue: cfg.remoteMode ? '1' : '0',
+                  onChange: function (e) { setCfg({ remoteMode: e.target.value === '1' }) },
+                }, h('option', { value: '0' }, '关闭 —— 不出网，本地合并'),
+                  h('option', { value: '1' }, '开启 —— 远程仓库 / forge PR')),
+                h('div', { className: 'flowv-hint' }, cfg.remoteMode
+                  ? (cfg.remoteReady ? '远程模式已生效。' : ('已开但还不能出网：' + remoteReasonLabel(cfg.remoteReason)))
+                  : '关闭时隐藏远程仓库、recordIssues、recordPulls、pushRemote、autoLane、externalPr。自动验收和自动合并仍可用。')),
+              cfg.remoteMode ? h('div', { className: 'flowv-grid2' },
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '记录 PR（recordPulls）'),
+                  h('select', {
+                    className: 'flowv-select', defaultValue: cfg.recordPulls ? '1' : '0',
+                    onChange: function (e) { setCfg({ recordPulls: e.target.value === '1' }) },
+                  }, h('option', { value: '0' }, '关闭'), h('option', { value: '1' }, '开启'))),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '写回远程（pushRemote）'),
+                  h('select', {
+                    className: 'flowv-select', defaultValue: cfg.pushRemote ? '1' : '0',
+                    onChange: function (e) { setCfg({ pushRemote: e.target.value === '1' }) },
+                  }, h('option', { value: '0' }, '关闭'), h('option', { value: '1' }, '开启'))),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '外部 PR 自动合并（externalPr.autoMerge）'),
+                  h('select', {
+                    className: 'flowv-select',
+                    defaultValue: cfg.externalPr && cfg.externalPr.autoMerge ? '1' : '0',
+                    onChange: function (e) { setCfg({ externalPr: { autoMerge: e.target.value === '1' } }) },
+                  }, h('option', { value: '0' }, '关闭（默认，还需 autoMerge）'), h('option', { value: '1' }, '开启')),
+                  h('div', { className: 'flowv-hint' }, '默认关。autoMerge 也要开，调度才会自动合外部 PR。')),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '验收工单（acceptanceTickets）'),
+                  h('select', {
+                    className: 'flowv-select', defaultValue: cfg.acceptanceTickets === false ? '0' : '1',
+                    onChange: function (e) { setCfg({ acceptanceTickets: e.target.value === '1' }) },
+                  }, h('option', { value: '1' }, '开启（默认）'), h('option', { value: '0' }, '关闭')))) : null,
+              h('div', { className: 'flowv-grid2' },
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '自动验收'),
+                  h('select', {
+                    className: 'flowv-select', defaultValue: cfg.autoAccept ? '1' : '0',
+                    onChange: function (e) { setCfg({ autoAccept: e.target.value === '1' }) },
+                  }, h('option', { value: '0' }, '关闭（人工验收）'), h('option', { value: '1' }, '开启（证据齐全自动过）'))),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '自动合并'),
+                  h('select', {
+                    className: 'flowv-select', defaultValue: cfg.autoMerge ? '1' : '0',
+                    onChange: function (e) { setCfg({ autoMerge: e.target.value === '1' }) },
+                  }, h('option', { value: '0' }, '关闭（人工点合并）'), h('option', { value: '1' }, '开启（审核通过即合并')))),
               h('h6', null, '共享技能暴露范围'),
               h('div', { className: 'flowv-field' },
                 h('label', { htmlFor: 'flowv-skills-mode' }, '工位可用技能'),
@@ -4165,18 +4501,18 @@ var silentRead = function (inboxId) {
                       else e.target.value = cfg.grillMaxRounds == null ? 4 : cfg.grillMaxRounds
                     },
                   }))),
-              h('div', { className: 'flowv-field' },
+              cfg.remoteMode ? h('div', { className: 'flowv-field' },
                 h('label', null, '记录 issue（远程工单）'),
                 h('select', {
                   className: 'flowv-select', defaultValue: recordIssues ? '1' : '0',
                   onChange: function (e) { setCfg({ recordIssues: e.target.value === '1' }) },
                 }, h('option', { value: '0' }, '关闭 —— 纯本地看板，只由人派活'),
-                  h('option', { value: '1' }, '开启 —— 接远程 issue，先自动调研再等人批准'))),
-              h('div', { className: 'flowv-hint' },
+                  h('option', { value: '1' }, '开启 —— 接远程 issue，先自动调研再等人批准'))) : null,
+              cfg.remoteMode ? h('div', { className: 'flowv-hint' },
                 recordIssues
                   ? '开着：远程 issue 会建卡并自动调研，调研完停在待批准，人点头才开工。'
-                  : '关着：纯本地看板模式。任务全靠人/主调度在看板上建，不接远程事件，也没有自动化开关。'),
-              recordIssues ? h('div', { className: 'flowv-grid2' },
+                  : '关着：纯本地看板模式。任务全靠人/主调度在看板上建，不接远程事件，也没有自动化开关。') : null,
+              recordIssues ? (cfg.remoteMode ? h('div', { className: 'flowv-grid2' },
                 h('div', { className: 'flowv-field' },
                   h('label', null, '自动接管远程 issue（autoLane）'),
                   // C-09：这一项成为建卡开关。没设过（null）时显示「跟随补位」——
@@ -4197,7 +4533,7 @@ var silentRead = function (inboxId) {
                   h('select', {
                     className: 'flowv-select', defaultValue: cfg.autoAccept ? '1' : '0',
                     onChange: function (e) { setCfg({ autoAccept: e.target.value === '1' }) },
-                  }, h('option', { value: '0' }, '关闭（人工验收）'), h('option', { value: '1' }, '开启（证据齐全自动过）')))) : null,
+                  }, h('option', { value: '0' }, '关闭（人工验收）'), h('option', { value: '1' }, '开启（证据齐全自动过）')))) : null) : null,
               h('div', { className: 'flowv-grid2' },
                 h('div', { className: 'flowv-field' },
                   h('label', null, '同项目并行上限'),
@@ -4230,7 +4566,7 @@ var silentRead = function (inboxId) {
                       })
                     },
                   }, '释放集成检出'))),
-              recordIssues ? h('div', { className: 'flowv-grid2' },
+              recordIssues ? (cfg.remoteMode ? h('div', { className: 'flowv-grid2' },
                 h('div', { className: 'flowv-field' },
                   h('label', null, '合并策略'),
                   h('select', {
@@ -4245,7 +4581,7 @@ var silentRead = function (inboxId) {
                   h('select', {
                     className: 'flowv-select', defaultValue: cfg.autoMerge ? '1' : '0',
                     onChange: function (e) { setCfg({ autoMerge: e.target.value === '1' }) },
-                  }, h('option', { value: '0' }, '关闭（人工点合并）'), h('option', { value: '1' }, '开启（审核通过即合并')))) : null,
+                  }, h('option', { value: '0' }, '关闭（人工点合并）'), h('option', { value: '1' }, '开启（审核通过即合并')))) : null) : null,
               h('div', { className: 'flowv-grid2' },
                 ),
               h('div', { className: 'flowv-grid2' },
@@ -4284,12 +4620,18 @@ var silentRead = function (inboxId) {
                   h('div', { className: 'flowv-hint' }, '保护模式下，工人最近评论或 run 开始后这么久内不允许调度员重置'))),
             )
           } else if (settings.tab === 'remote') {
-            body = h(RemotePane, {
+            if (!cfg.remoteMode) {
+              body = h('div', { className: 'flowv-hint' }, '远程模式关闭：不出网，本地合并。打开 remoteMode 后才会显示远程仓库配置。')
+            } else {
+            body = h('div', null,
+              cfg.remoteReady === false ? h('div', { className: 'flowv-hint', role: 'alert' }, '远程模式已开，但还不能出网：' + remoteReasonLabel(cfg.remoteReason)) : null,
+              h(RemotePane, {
               project: project,
               sync: v.sync || null,
               act: act,
               reload: load,
-            })
+            }))
+            }
           } else if (settings.tab === 'lanes') {
             var laneList = (cfg && cfg.recordIssues) ? ['human', 'issue'] : ['human']
             var laneRows = laneList.map(function (lane) {
@@ -4589,13 +4931,13 @@ var silentRead = function (inboxId) {
                 'aria-expanded': autoLaneOpen ? 'true' : 'false',
                 onClick: function () { setAutoLaneOpen(function (prev) { return !prev }) },
               },
-                (autoLaneOpen ? '▾ ' : '▸ ') + '自动车道',
+                (autoLaneOpen ? '▾ ' : '▸ ') + '最近活动',
                 h('span', { className: 'n' }, '(' + n + ')'),
                 !autoLaneOpen && n ? h('span', { className: 'n' }, '· 展开看') : null),
               esc
                 ? h(Chip, { tone: 'warn', title: esc + ' 条自动卡卡住了或有请示在等人' }, '需人处理 ' + esc)
                 : null,
-              h('span', { className: 'flowv-hint' }, '这些卡被系统自动接管，不上看板；展开可见、可点开详情')),
+              h('span', { className: 'flowv-hint' }, '最近活动旁注，不是自动车道主视图')),
             autoLaneOpen
               ? (rows.length
                 ? h('ul', { className: 'flowv-auto-list' }, rows)
@@ -4617,9 +4959,30 @@ var silentRead = function (inboxId) {
               v.project && v.project.config && v.project.config.recordIssues ? laneRow(v.lanes.issue) : null)),
           h('div', { className: 'flowv-board-head' },
             h('span', { className: 'flowv-board-title' }, '看板'),
-            h('span', { className: 'flowv-hint' }, '点卡片打开详情；空列会收窄，把宽度让给有卡的列')),
-          h('div', { className: 'flowv-cols' }, v.columns.map(columnEl)),
-          // 自动车道紧跟在看板下面：它是看板的补充（不上板的那批卡在这里），不是设置项。
+            h('nav', { className: 'flowv-mail-tabs' }, ['human', 'issue'].map(function (key) {
+              var on = activeLane === key
+              var pack = key === 'issue' ? issuePack : humanPack
+              var cats = (v.inbox && v.inbox.categories) || {}
+              var badges = []
+              if (pack && pack.blocked) badges.push('阻塞 ' + pack.blocked)
+              if (pack && pack.needsHuman) badges.push('需人 ' + pack.needsHuman)
+              if (cats.approval) badges.push('待批准 ' + cats.approval)
+              if (cats.acceptance) badges.push('待验收 ' + cats.acceptance)
+              if (cats['external-pr']) badges.push('外部PR ' + cats['external-pr'])
+              return h('button', {
+                key: 'lane-tab-' + key, type: 'button',
+                className: 'flowv-mail-tab' + (on ? ' on' : ''),
+                'aria-pressed': on ? 'true' : 'false',
+                onClick: function () { setBoardLane(key) },
+              }, key === 'human' ? '人车道' : '自动车道',
+                badges.length ? h('span', { className: 'flowv-mail-tab-n' }, badges.join(' · ')) : null)
+            })),
+            h('span', { className: 'flowv-hint' }, activeLane === 'issue' && !issuePack
+              ? '旧服务端没有 lanes，自动车道为空'
+              : '点卡片打开详情；空列会收窄，把宽度让给有卡的列')),
+          activeLane === 'issue' && !issuePack
+            ? h('div', { className: 'flowv-sec-empty' }, '自动车道没有数据（旧服务端未投影 lanes）')
+            : h('div', { className: 'flowv-cols' }, boardCols.map(columnEl)),
           renderAutoLane(),
           sectionsQuiet
             ? h('div', { className: 'flowv-quiet' }, '没有在跑的 run、租约、审批或事务事件——有活时这里会按列铺开')
