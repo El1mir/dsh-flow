@@ -1,5 +1,5 @@
 # Insert the flow workbench into the profile composition.
-# Node resolves @local/dsh-flow from the profile node_modules after installation.
+# Node resolves @el1mir/dsh-flow from the profile node_modules after installation.
 - insert:
     - id: dsh-flow
-      name: "@local/dsh-flow"
+      name: "@el1mir/dsh-flow"

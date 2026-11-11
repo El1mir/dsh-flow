@@ -13,23 +13,23 @@
 
 ## 安装
 
-需要 Node.js 20+ 与已安装的 DSH。
+要求：DSH `>=0.2.0-rc.2`，Node.js 20+。
 
 ```bash
 cd ~/.dsh/profiles/web
-npm install "file:/path/to/dsh-flow"
+npm install @el1mir/dsh-flow
 ```
 
-在该 profile 的 `cordis.patch.yml` 中加入：
+然后在该 profile 的 `package.json` 的 `dsh.profile.bundles` 里加入 `"@el1mir/dsh-flow"`（或在 `cordis.patch.yml` 里加 `- insert: [{id: dsh-flow, name: "@el1mir/dsh-flow"}]`），重启 DSH。工作台入口：`/api/flow/app`，页面右下角会出现「调度台」浮标。
 
-```yaml
-- insert:
-    - id: dsh-flow
-      name: "@local/dsh-flow"
+从源码安装：
+
+```bash
+git clone https://github.com/El1mir/dsh-flow.git
+cd ~/.dsh/profiles/web && npm install "file:/path/to/dsh-flow"
 ```
 
-重启 DSH。工作台入口：`/api/flow/app`，页面右下角会出现「调度台」浮标。
-
+发布到 npm（维护者）：`npm test && npm publish`（`prepublishOnly` 会先跑测试，包只含 `index.js`、`client.js`、`lib/`、`skills/`、`cordis.patch.yml`、`README.md`、`LICENSE`）。
 ## 开启远程模式
 
 在项目配置里设置 `remoteMode: true`、`remote.kind` / `remote.owner` / `remote.repo`、`pushRemote: true`，再按需开启 `recordIssues` / `recordPulls`。条件不满足时会退回本地模式并说明原因，不会静默出网。
