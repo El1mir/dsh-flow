@@ -1,4 +1,17 @@
-## v0.1.0：远程事务与双车道
+## v0.017.2（package 0.0.23）：Inbox 聊天化 + 开源发布
+
+- Inbox 详情改为聊天式对话流，修 sheet 滚动，补车道筛选。
+- 以 MIT 开源：新增 LICENSE 与公开 README（旧长文 README 移入 docs/），.gitignore 忽略研究文档、本地票据与调试残留；align-state 测试在设计文档缺失时跳过。
+- 包名改为 `@el1mir/dsh-flow`，`cordis.patch.yml` 同步；`engines` 声明 node >=20、dsh >=0.2.0-rc.2；`files` 只打包运行所需的 index/client/lib/skills 与补丁文件。
+
+## v0.017.1（package 0.0.22）：验收证据分级 + 远程鉴权
+
+- 验收项按证据分类：缺失/未跑改为去重通知调度，不再直接开人工工单；fail / not-run / missing-report 三态分开，旧格式报告仍按保守规则判定。
+- 新增调度专用 `supplement_evidence`：只接受绑定当前 HEAD 的 auto 项、要求 pass + 证据，只补证不代验收；`acceptedBy` / `autoAccept` 授权守卫不变。
+- 修复远程请求匿名：`getJson`/`sendJson`/`createRemoteIssue` 统一在共享 helper 解析 token，`getPull`/`mergePull`/`listPulls` 不再撞 GitHub 60 次/小时限流（403），远程合并不再被卡死；`findOpenPull` 保留 status/detail 诊断，body 先脱敏再截断。
+- 被拒的外部 PR 能安全收口对应卡片。
+
+## v0.017（package 0.0.21，schema 16 → 17）：远程事务与双车道
 
 - 新增 remoteMode：本地模式完全不出网；远程模式以 GitHub PR 为合并唯一入口，按卡开分支、开远程 PR、forge merge，冲突/权限/保护规则失败会阻塞并开工单。
 - 新增 lib/remote-policy.js、lib/landing.js、lib/domain/lane-messages.js；自动车道把远程 issue 建为完整卡并进入自动车道看板。

@@ -1,6 +1,6 @@
 {
   "name": "@el1mir/dsh-flow",
-  "version": "0.1.0",
+  "version": "0.0.23",
   "type": "module",
   "main": "index.js",
   "exports": {
