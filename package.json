@@ -83,7 +83,14 @@
     "index.js",
     "client.js",
     "lib/",
+    "skills/",
     "cordis.patch.yml",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/El1mir/dsh-flow.git"
+  }
 }

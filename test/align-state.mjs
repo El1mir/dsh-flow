@@ -11,10 +11,12 @@
  *   ② 不变量落点：§1.2 的 I1–I15 是否都有可执行代码，且能被冒烟测试触达
  */
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { TRANSITIONS, COLUMNS, SCHEMA_VERSION, reviewActionOf, PLAN_APPROVALS } from '../lib/core.js'
 
 const DOC = new URL('../docs/事务流设计.md', import.meta.url)
+// 设计文档不随开源仓库发布（docs/ 已 gitignore）；没有它就跳过对齐核对。
+if (!existsSync(DOC)) { console.log('  - skip：docs/事务流设计.md 不存在'); process.exit(0) }
 const doc = readFileSync(DOC, 'utf8')
 const docLines = doc.split(/\r?\n/)
 

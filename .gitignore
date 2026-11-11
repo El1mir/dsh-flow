@@ -28,3 +28,18 @@ nul
 .ft*.exit
 .sm*.log
 .sm*.exit
+
+# --- 开源发布：研究/设计文档、本地工单、调试残留不进远程 ---
+docs/
+.wayfinder/
+.scratch/
+.codegraph/
+test/.preview/
+test/.render-preview.mjs
+.dbg.mjs
+.lab*.cjs
+*.log
+*.exit
+*.bak
+.backup/
+.bak-*/
