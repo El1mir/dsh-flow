@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { listOpenPulls } from '../lib/remote.js'
 import { Store } from '../lib/core.js'
 import { FlowDomain } from '../lib/domain.js'
 import { createDispatcher, branchFor } from '../lib/dispatch.js'
@@ -57,7 +58,7 @@ async function projectFor(repo, { remoteMode }) {
       pushRemote: true,
       recordPulls: true,
       remoteMode,
-      remote: { kind: 'github', owner: 'o', repo: 'r' },
+      remote: { kind: 'github', owner: 'o', repo: 'r', useGhCli: false },
     }
   })
   return store.state.projects[project.id]
@@ -122,6 +123,47 @@ await t('createPull 失败 → blocked，不写本地 PR', async () => {
     assert.equal(out.reason, 'open-pr-failed')
     assert.equal(Object.values(store.state.pull_requests || {}).filter((p) => p.taskId === task.id).length, 0)
     assert.equal(store.state.tasks[task.id].mergeState, 'blocked')
+  } finally { globalThis.fetch = real }
+})
+
+await t('GET /pulls 403 诊断截断后仍完整脱敏 token', async () => {
+  const secret = 'test-token-do-not-leak'
+  const detail = 'x'.repeat(1990) + secret + ' tail'
+  const out = await listOpenPulls({
+    remote: { kind: 'github', owner: 'o', repo: 'r', token: secret, useGhCli: false },
+    fetchImpl: async () => ({ ok: false, status: 403, text: async () => detail }),
+  })
+  assert.equal(out.status, 403)
+  assert.equal(out.detail.includes('test-token'), false, '截断前完整脱敏，不能留下 token 前缀')
+  assert.ok(out.detail.length <= 2000)
+})
+
+await t('GET /pulls 403 保留响应诊断并脱敏 token', async () => {
+  const repo = mkRepo('list-forbidden')
+  withOrigin(repo)
+  const project = await projectFor(repo, { remoteMode: true })
+  const secret = 'test-token-do-not-leak'
+  await store.tx((s) => { s.projects[project.id].config.remote = { kind: 'github', owner: 'o', repo: 'r', token: secret, useGhCli: true } })
+  const task = await domain.createTask(project.id, { title: 'list forbidden' })
+  ensureBranch(repo, branchFor(task))
+  const seen = []
+  const real = globalThis.fetch
+  globalThis.fetch = async (url, init) => {
+    seen.push({ url: String(url), method: (init && init.method) || 'GET', authorization: init && init.headers && init.headers.authorization })
+    return json(403, { message: 'Resource not accessible by personal access token', token: secret })
+  }
+  try {
+    const out = await dispatcher.openPr(store.state.tasks[task.id])
+    assert.equal(out.ok, false)
+    assert.equal(out.reason, 'open-pr-failed')
+    assert.match(out.message, /HTTP 403/)
+    assert.match(out.message, /Resource not accessible by personal access token/)
+    assert.equal(out.message.includes(secret), false, '错误诊断不得泄漏 token')
+    assert.equal(seen.length, 1, '列出 PR 失败后不得继续 POST')
+    assert.equal(seen[0].method, 'GET')
+    assert.equal(seen[0].authorization, 'Bearer ' + secret, 'API 查询必须使用配置/CLI token')
+    assert.equal(store.state.tasks[task.id].noMergeReason.includes(secret), false)
+    assert.equal(Object.values(store.state.pull_requests || {}).filter((p) => p.taskId === task.id).length, 0)
   } finally { globalThis.fetch = real }
 })
 
