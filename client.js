@@ -1020,9 +1020,26 @@ window.__ModuleLoader__.load({
       '.flowv-field>label{display:block;font-size:11px;color:var(--dsw-alias-label-tertiary);margin-bottom:3px}',
       '.flowv-hint{font-size:11px;color:var(--dsw-alias-label-tertiary);margin-top:3px}',
       '.flowv-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
-      '.flowv-agent-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--dsw-alias-border-l2);font-size:11.5px}',
-      '.flowv-agent-row:last-child{border-bottom:0}',
-      '.flowv-agent-name{font-weight:500;min-width:76px}',
+      // v0.017：工位模型改成「预设 + 现状表」。行不再是 flex（它是 <tr>），
+      // 只留字号，单元格负责间距与分隔线。
+      '.flowv-agent-row{font-size:11.5px}',
+      '.flowv-agent-row td{padding:6px;vertical-align:middle;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-agent-row:last-child td{border-bottom:0}',
+      '.flowv-agent-name{font-weight:500}',
+      '.flowv-agent-cell{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+      '.flowv-agent-pick{width:26px}',
+      '.flowv-agent-model,.flowv-agent-effort{font-family:var(--dsw-font-mono,ui-monospace);font-size:11px;white-space:nowrap;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-agent-acts-in{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}',
+      '.flowv-agent-preset{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;padding:10px;margin-bottom:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-module-platform)}',
+      '.flowv-agent-table{width:100%;border-collapse:collapse}',
+      '.flowv-agent-table th{text-align:left;font-size:10.5px;font-weight:500;color:var(--dsw-alias-label-tertiary);padding:4px 6px;border-bottom:1px solid var(--dsw-alias-border-l3)}',
+      // v0.017：/flow 的「主调度」胶囊。紫色没有主题令牌（DSH 自己也用 violet 字面量），
+      // 这里取 violet-500：浅色底上够读，深色底上也亮。
+      '.flowv-flow-chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;border:1px solid rgba(139,92,246,.5);background:rgba(139,92,246,.12);color:rgb(139,92,246);font:inherit;font-size:12px;line-height:20px;cursor:pointer}',
+      '@media(hover:hover) and (pointer:fine){.flowv-flow-chip:hover{background:rgba(139,92,246,.22)}}',
+      '.flowv-flow-chip:focus-visible{outline:2px solid rgb(139,92,246);outline-offset:1px}',
+      '.flowv-flow-chip:disabled{opacity:.6;cursor:default}',
+      '.flowv-flow-chip-dot{font-size:11px;line-height:1}',
       '.flowv-tabs{display:flex;gap:4px;border-bottom:1px solid var(--dsw-alias-border-l2);margin-bottom:10px}',
       '.flowv-tab{padding:4px 9px;font-size:11.5px;border-radius:var(--dsw-radius-sm,8px) var(--dsw-radius-sm,8px) 0 0;border:1px solid transparent;border-bottom:0;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;font:inherit}',
       '.flowv-tab.on{background:var(--dsw-alias-bg-module-platform);border-color:var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary)}',
@@ -1115,6 +1132,9 @@ window.__ModuleLoader__.load({
       '.flowv-mail-row-time{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:0 0 auto}',
       '.flowv-mail-row-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row.is-unread .flowv-mail-row-title{font-weight:700}',
+      // v0.017：归档后未读 —— 位置不动、颜色退一档，让人一眼看出「这条已经处理过，但我还没看」。
+      '.flowv-mail-row.is-parked{opacity:.72}',
+      '@media(hover:hover) and (pointer:fine){.flowv-mail-row.is-parked:hover{opacity:1}}',
       '.flowv-mail-row-preview{font-size:11px;line-height:1.45;color:var(--dsw-alias-label-secondary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
       '.flowv-mail-row-keep{font-size:9.5px;padding:0 4px;border-radius:4px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-state-business-primary)}',
@@ -1177,6 +1197,12 @@ window.__ModuleLoader__.load({
       '.flowv-mail-title{flex:1 1 auto;min-width:0;font-size:14px;line-height:1.4;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}',
       '.flowv-mail-head-meta{margin-top:5px;font-size:10.5px;line-height:1.45;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
       '.flowv-mail-stream{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 24px 22px;scrollbar-color:var(--dsw-alias-border-l3) transparent;scrollbar-width:thin}',
+      // v0.018：对话线「向上加载更早的」——虚线按钮，明确是「还能往上翻」而不是操作按钮。
+      '.flowv-ib-more{display:flex;align-items:center;justify-content:center;gap:6px;margin:2px 0 10px;padding:5px 10px;border:1px dashed var(--dsw-alias-border-l3);border-radius:8px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:11.5px;cursor:pointer}',
+      '.flowv-ib-more:hover{border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}',
+      '.flowv-ib-more:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}',
+      '.flowv-ib-more:disabled{opacity:.55;cursor:default}',
+      '.flowv-ib-more-err{margin:0 0 8px;font-size:11px;color:var(--dsw-alias-state-error-primary)}',
       '.flowv-mail ::selection{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary)}',
       '.flowv-mail input,.flowv-mail textarea{caret-color:var(--dsw-alias-state-business-primary)}',
       '.flowv-msg{padding:11px 0}',
@@ -1993,7 +2019,21 @@ window.__ModuleLoader__.load({
               var id = m.id || m.model || m.name
               if (!provider || !id) return
               var label = (g.name || provider) + ' · ' + (m.name || id)
-              out.push({ key: provider + '/' + id, label: label })
+              // v0.017：努力档位跟着模型走（DSH 的 ModelReasoning.efforts）。没有 reasoning
+              // 的模型就是没有档位 —— 界面据此把「思考强度」置灰，而不是给一堆无效选项。
+              var efforts = []
+              if (m.reasoning && Array.isArray(m.reasoning.efforts)) {
+                m.reasoning.efforts.forEach(function (ef) {
+                  if (!ef || !ef.id) return
+                  efforts.push({ id: String(ef.id), name: ef.name || String(ef.id), description: ef.description || '' })
+                })
+              }
+              out.push({
+                key: provider + '/' + id, label: label,
+                provider: provider, model: id,
+                efforts: efforts,
+                defaultEffort: (m.reasoning && m.reasoning.defaultEffort) || null,
+              })
             })
           })
           return out
@@ -2915,6 +2955,9 @@ var silentRead = function (inboxId) {
           var query = String(q).trim().toLowerCase()
           var isNotice = function (x) { return x.kind === 'info' || x.kind === 'error' }
           var isActive = function (x) { return x.status !== 'archived' }
+          // v0.017：归档 ≠ 读过。调度在模型回复后把工单归档了，但人还没点开 ——
+          // 这条必须继续以「归档后形态」留在原来的分类里，点开（标已读）之后才真正沉底。
+          var isParked = function (x) { return !isActive(x) && !x.readAt && !isNotice(x) }
           var keepId = inbox.keep || ''
           var pool = all.filter(function (x) {
             if (query) {
@@ -2922,12 +2965,17 @@ var silentRead = function (inboxId) {
               if (searchable.indexOf(query) < 0) return false
             }
             if (tab === 'archived') return !isActive(x)
-            if (!isActive(x)) return false
+            if (!isActive(x)) {
+              // keep：刚被点开的那一条在本次抽屉会话里继续留着，免得东西在光标下消失。
+              // 抽屉一关（setInbox(null)）它就真的进归档区了。
+              if (!isParked(x) && x.id !== keepId) return false
+              return tab === 'all' || tab === 'todo' || catOf(x) === tab
+            }
             if (tab === 'notices') return isNotice(x) || catOf(x) === 'info'
             if (tab === 'all') return true
             if (x.id === keepId) return true
             // todo 是打开抽屉时的默认（不是芯片）：排除通知，保住「只有通知时右栏为空」的路径。
-            if (tab === 'todo') return !isNotice(x) && x.status === 'open'
+            if (tab === 'todo') return isParked(x) || (!isNotice(x) && x.status === 'open')
             if (tab === 'approval') return catOf(x) === 'approval'
             if (tab === 'acceptance') return catOf(x) === 'acceptance'
             if (tab === 'external-pr') return catOf(x) === 'external-pr'
@@ -2940,7 +2988,7 @@ var silentRead = function (inboxId) {
           var countOf = function (id) {
             return all.filter(function (x) {
               if (id === 'archived') return !isActive(x)
-              if (!isActive(x)) return false
+              if (!isActive(x)) return isParked(x) && (id === 'all' || catOf(x) === id)
               if (id === 'all') return true
               if (id === 'notices') return isNotice(x) || catOf(x) === 'info'
               return catOf(x) === id
@@ -2948,9 +2996,16 @@ var silentRead = function (inboxId) {
           }
           var selected = pool.filter(function (x) { return x.id === (inbox.sel || '') })[0] || pool[0] || null
           var select = function (x) {
-            setInbox(Object.assign({}, inbox, { sel: x.id, keep: keepId === x.id ? keepId : null, mobileDetail: true }))
+            // 归档后未读：点开时先把这一条钉住（keep），等标已读成功、它不再是「未读」了，
+            // 也要等抽屉关掉才从列表里消失 —— 否则人刚点开，行就在光标底下没了。
+            setInbox(Object.assign({}, inbox, {
+              sel: x.id,
+              keep: keepId === x.id ? keepId : (isParked(x) ? x.id : null),
+              mobileDetail: true,
+            }))
             // 选中即已读（列表上的未读点跟着消失）。只在第一次发，失败也不打扰人。
-            if (!x.readAt && x.status !== 'archived' && !inboxReadSent[x.id]) {
+            // v0.017：已归档未读也要走这一步 —— 这正是它「留在原位」的条件。
+            if (!x.readAt && !inboxReadSent[x.id]) {
               inboxReadSent[x.id] = true
               silentRead(x.id).then(function () {
                 setInbox(function (prev) {
@@ -2998,13 +3053,14 @@ var silentRead = function (inboxId) {
           })
           var rowEl = function (x) {
             var on = selected && selected.id === x.id
-            var unread = !x.readAt && x.status !== 'archived'
+            // 归档后未读也是未读（圆点/加粗保留）；归档的通知不在此列。
+            var unread = !x.readAt && (isActive(x) || !isNotice(x))
             var asks = Array.isArray(x.asks) ? x.asks : []
             var preview = String(x.problem || x.body || x.decisionNeeded || '').replace(/\s+/g, ' ').trim()
             var category = catOf(x)
             return h('button', {
               key: 'row-' + x.id, type: 'button',
-              className: 'flowv-mail-row' + (on ? ' is-sel' : '') + (unread ? ' is-unread' : ''),
+              className: 'flowv-mail-row' + (on ? ' is-sel' : '') + (unread ? ' is-unread' : '') + (isParked(x) ? ' is-parked' : ''),
               'aria-pressed': on ? 'true' : 'false',
               'aria-label': (x.topic || '(无标题)') + (x.taskId ? '，' + x.taskId : '') + (unread ? '，未读' : ''),
               onClick: function (e) { e.stopPropagation(); select(x) },
@@ -3021,10 +3077,10 @@ var silentRead = function (inboxId) {
                   (Array.isArray(x.refs) ? x.refs : []).slice(0, 4).map(function (ref, i) {
                     return h('span', { key: 'ref' + i, className: 'flowv-mono' }, (ref.kind || 'ref') + ':' + (ref.id || ref.label || ''))
                   }),
-                  h('span', null, '回复 ' + ((x.replies && x.replies.length) || x.replyCount || 0)),
+                  h('span', null, '回复 ' + (Number(x.replyTotal) || (x.replies && x.replies.length) || x.replyCount || 0)),
                   asks.length ? h('span', null, answeredOf(x) + '/' + asks.length) : null,
                   x.id === (inbox.keep || '') ? h('span', { className: 'flowv-mail-row-keep' }, x.status === 'archived' ? '已归档' : '刚回复') : (x.status === 'answered' ? h('span', null, '已回') : null),
-                  x.status === 'archived' ? h('span', null, '归档') : null)))
+                  x.status === 'archived' ? h('span', null, isParked(x) ? '归档 · 未读' : '归档') : null)))
           }
 
           // 选项按钮：点了把选项文字填进回复框，人可以接着补充
@@ -3544,11 +3600,73 @@ var silentRead = function (inboxId) {
                 dayTime(x.createdAt) + ' · 来自 ' + (x.from || '-')
                 + (x.lane ? ' · ' + x.lane + ' 车道' : '')
                 + (asks.length ? ' · 补充 ' + answeredOf(x) + '/' + asks.length : '')
-                + (x.replies && x.replies.length ? ' · 往来 ' + x.replies.length + ' 条' : '')))
+                + ((Number(x.replyTotal) || (x.replies && x.replies.length) || 0)
+                  ? ' · 往来 ' + (Number(x.replyTotal) || x.replies.length) + ' 条' : '')))
           }
 
+          // v0.018：对话线只渲染最近 5 条，更早的按需往上加载。
+          // 合并键用 id：轮询会把 x.replies 换成新的「最近 5 条」，已加载的历史必须跟着走，
+          // 否则刷新一次历史就断一截、或者同一批消息被渲染两遍。
+          var mergeReplies = function (older, newer) {
+            var byId = {}
+            ;(older || []).concat(newer || []).forEach(function (r) {
+              if (r && r.id) byId[r.id] = r
+            })
+            return Object.keys(byId).map(function (k) { return byId[k] }).sort(function (a, b) {
+              return String(a.at || '') < String(b.at || '') ? -1 : 1
+            })
+          }
+          var threadStateOf = function (x) {
+            var map = inbox.threadExtra || {}
+            return map[x.id] || {}
+          }
+          // 游标用「当前最旧一条的 id」而不是 offset：翻历史的同时调度又追加了新回复时，
+          // offset 会错位（漏一条或重一条），id 不会。
+          var loadOlderReplies = function (x, replies) {
+            var st = threadStateOf(x)
+            if (st.loading) return
+            var oldest = replies[0] ? replies[0].id : null
+            if (!oldest) return
+            var mark = function (patch) {
+              setInbox(function (prev) {
+                var base = prev || {}
+                var map = Object.assign({}, base.threadExtra || {})
+                map[x.id] = Object.assign({}, map[x.id] || {}, patch)
+                return Object.assign({}, base, { threadExtra: map })
+              })
+            }
+            mark({ loading: true, error: '' })
+            postAction('inbox.replies', { inboxId: x.id, before: oldest, limit: 5 }).then(function (res) {
+              if (!res || res.ok === false) throw new Error((res && (res.message || res.reason)) || '没取到更早的对话')
+              var got = Array.isArray(res.replies) ? res.replies : []
+              setInbox(function (prev) {
+                var base = prev || {}
+                var map = Object.assign({}, base.threadExtra || {})
+                var prevSt = map[x.id] || {}
+                map[x.id] = {
+                  items: mergeReplies(prevSt.items || [], got),
+                  hasMore: res.hasMore === true,
+                  total: Number(res.total) || prevSt.total || 0,
+                  loading: false,
+                  error: '',
+                }
+                return Object.assign({}, base, { threadExtra: map })
+              })
+            }).catch(function (err) {
+              mark({ loading: false, error: String((err && err.message) || err) })
+            })
+          }
           var streamEl = function (x) {
-            var replies = Array.isArray(x.replies) ? x.replies : []
+            var st = threadStateOf(x)
+            // 服务端已经裁到最近 5 条；这里再 slice 一次是兜底 —— 任何旧路径/异常响应
+            // 把整条对话线塞进来时，界面仍然只铺 5 条，不会把右栏拉成无限长。
+            var replies = mergeReplies(st.items || [], Array.isArray(x.replies) ? x.replies.slice(-5) : [])
+            var total = Math.max(Number(x.replyTotal) || 0, Number(st.total) || 0, Array.isArray(x.replies) ? x.replies.length : 0, replies.length)
+            var hasMore = st.hasMore !== undefined ? st.hasMore === true : x.repliesHasMore === true
+            var moreEl = hasMore ? h('button', {
+              className: 'flowv-ib-more', type: 'button', disabled: !!st.loading,
+              onClick: function (e) { e.stopPropagation(); loadOlderReplies(x, replies) },
+            }, st.loading ? '加载中…' : '向上加载更早的 ' + Math.min(5, Math.max(1, total - replies.length)) + ' 条') : null
             return h('div', { className: 'flowv-mail-stream' },
               msgEl({
                 key: 'ticket-' + x.id, ticket: true,
@@ -3566,6 +3684,8 @@ var silentRead = function (inboxId) {
                   suggestEl(x),
                 ],
               }),
+              moreEl,
+              st.error ? h('div', { className: 'flowv-ib-more-err' }, '没取到更早的对话：' + st.error) : null,
               replies.map(function (r) {
                 var mine = r.role === 'human'
                 var who = mine ? '你' : (r.role === 'system' ? '系统' : (r.by || '调度'))
@@ -4479,7 +4599,22 @@ var silentRead = function (inboxId) {
                 '生效顺序：工位单独配的模型 → 项目默认模型 → 这里的全局默认 → DSH 当前选择。'),
               h('div', { className: 'flowv-hint' },
                 gCur ? '当前：工人/子调度新建或重建会话都会切到这个模型，不受你在别的对话里换模型影响。'
-                     : '⚠ 没设置时，工位会话会跟随 DSH 的全局选择 —— 你在任意对话里换模型，重建出的会话也会跟着变。建议在这里固定下来。'))
+                     : '⚠ 没设置时，工位会话会跟随 DSH 的全局选择 —— 你在任意对话里换模型，重建出的会话也会跟着变。建议在这里固定下来。'),
+              // v0.017：通知 TTL。通知（info / error）是播报、不是待人回应的工单，
+              // 人可能永远不点；不清就会把请示箱的通知 tab 堆满，把真工单挤走。
+              h('div', { className: 'flowv-field' },
+                h('label', null, '通知 N 分钟后自动归档'),
+                h('input', {
+                  className: 'flowv-input', type: 'number', min: 0, max: 10080, step: 10,
+                  defaultValue: String(Math.max(0, Number(gs.noticeArchiveMinutes) || 0)),
+                  onBlur: function (e) {
+                    var n = Number(e.target.value)
+                    if (!Number.isFinite(n) || n < 0) { e.target.value = String(Math.max(0, Number(gs.noticeArchiveMinutes) || 0)); return }
+                    saveGlobal({ noticeArchiveMinutes: Math.min(10080, Math.floor(n)) })
+                  },
+                }),
+                h('div', { className: 'flowv-hint' },
+                  '只作用于「通知」（info / error）。0 = 不自动归档；否则调度下一拍把超过这个分钟数的通知挪进「已归档」。')),
               // v0.007：调度员自己那轮被 503 这类环境错误打断时，自动给同一个会话续一条消息。
               // 这一项是人能看见「它还在自己试」的唯一凭据 —— 所以放在全局设置里，不藏在某张卡下面。
               h('div', { className: 'flowv-field' },
@@ -4509,7 +4644,7 @@ var silentRead = function (inboxId) {
                   },
                 })),
               h('div', { className: 'flowv-hint' },
-                '调度员（子调度/主调度）自己那一轮报错时，系统会给同一个会话再发一条续跑消息，从断点接着做。人点停止生成不算失败、不续跑；连续失败到上限就停下来，并往收件箱发一条「系统错误」通知等你处理。')
+                '调度员（子调度/主调度）自己那一轮报错时，系统会给同一个会话再发一条续跑消息，从断点接着做。人点停止生成不算失败、不续跑；连续失败到上限就停下来，并往收件箱发一条「系统错误」通知等你处理。'))
           }
           if (settings.tab === 'project') {
             var skillList = settings.skills || []
@@ -4829,94 +4964,177 @@ var silentRead = function (inboxId) {
               h('div', { className: 'flowv-hint' }, '保存时机：离开输入框（blur）即保存。保存后下一次派工生效。')
             )
           } else if (settings.tab === 'agents') {
+            // v0.017：模型配置改成「预设一次 → 勾工位 → 应用」。
+            // 原来每个工位各挂一个模型下拉：十几个工位十几个下拉，改一次要点十几下；
+            // 思考强度干脆没有入口。现在上方一个预设，下方一张现状表（只读地告诉你每个工位现在跟着谁）。
+            var preset = settings.preset || {}
+            var setPreset = function (patch) {
+              setSettings(function (prev) {
+                return Object.assign({}, prev, { preset: Object.assign({}, (prev && prev.preset) || {}, patch) })
+              })
+            }
+            var pickedMap = preset.picked || {}
+            var pickOf = function (a) { return pickedMap[a.id] !== false }
+            var togglePick = function (id, on) {
+              var next = Object.assign({}, pickedMap)
+              next[id] = !!on
+              setPreset({ picked: next })
+            }
+            var gsA = settings.global || {}
+            var presetOpts = modelOptions(settings.catalog)
+            // 表里要写「没单独配时跟着谁」：工位 → 项目默认 → 全局默认 → DSH 当前选择。
+            var modelText = function (a) {
+              if (a.provider && a.model) return a.provider + '/' + a.model
+              if (cfg.defaultProvider && cfg.defaultModel) return '项目默认 · ' + cfg.defaultProvider + '/' + cfg.defaultModel
+              if (gsA.defaultProvider && gsA.defaultModel) return '全局默认 · ' + gsA.defaultProvider + '/' + gsA.defaultModel
+              var d = settings.catalog && settings.catalog.default
+              if (d && d.provider && d.model) return 'DSH 默认 · ' + d.provider + '/' + d.model
+              return 'DSH 当前选择'
+            }
+            var effortText = function (a) {
+              if (a.reasoningEffort) return a.reasoningEffort
+              if (cfg.defaultReasoningEffort) return '项目默认 · ' + cfg.defaultReasoningEffort
+              if (gsA.defaultReasoningEffort) return '全局默认 · ' + gsA.defaultReasoningEffort
+              return '模型默认'
+            }
+            // 档位取并集：不同模型的 efforts 可能不同，预设只能给一份公共清单。
+            var effortIds = []
+            var effortNames = {}
+            presetOpts.forEach(function (o) {
+              (o.efforts || []).forEach(function (ef) {
+                if (effortNames[ef.id]) return
+                effortIds.push(ef.id)
+                effortNames[ef.id] = ef.name || ef.id
+              })
+            })
             // 总调度者不进模型配置（它的模型归 DSH 会话设置）
-            var rows = agents.filter(function (a) { return a.role !== 'chief' }).sort(function (a, b) { return Number(b.role === 'griller') - Number(a.role === 'griller') }).map(function (a) {
+            var sortedAgents = agents.filter(function (a) { return a.role !== 'chief' })
+              .sort(function (a, b) { return Number(b.role === 'griller') - Number(a.role === 'griller') })
+            var allPicked = sortedAgents.every(pickOf)
+            var applyPreset = function () {
+              var key = String(preset.custom || '').trim() || String(preset.key || '')
+              if (key.indexOf('/') < 1) { settingsNotice('先选一个模型，或手填 provider/model'); return }
+              var ids = sortedAgents.filter(pickOf).map(function (a) { return a.id })
+              if (!ids.length) { settingsNotice('至少勾一个工位'); return }
+              var parts = key.split('/')
+              // agents.applyModel：逐条走 selectAgentModel（落库 + 活会话立刻切），
+              // 失败项单独回给界面 —— 一个工位的会话卡住不该让整批都算失败。
+              act('agents.applyModel', {
+                projectId: project.id, agentIds: ids,
+                provider: parts[0], model: parts.slice(1).join('/'),
+                reasoningEffort: preset.effort || null,
+              }).then(function (res) {
+                if (!res) return
+                if (res.ok === false) { settingsNotice(res.message || '应用失败'); return }
+                var lines2 = ['已应用 ' + res.provider + '/' + res.model
+                  + (res.reasoningEffort ? ' · ' + res.reasoningEffort : '')
+                  + ' → ' + res.applied + ' 个工位']
+                if (res.failed && res.failed.length) {
+                  lines2.push('失败：' + res.failed.map(function (x) {
+                    return (x.agentId || '?') + '（' + (x.message || '未知原因') + '）'
+                  }).join('；'))
+                }
+                settingsNotice(lines2.join(SEP))
+              })
+            }
+            var rows = sortedAgents.map(function (a) {
               var sup = a.supervisorId && agents.filter(function (x) { return x.id === a.supervisorId })[0]
-              return h('div', { className: 'flowv-agent-row', key: a.id },
-                h('span', { className: 'flowv-agent-name' }, a.label || a.name),
-                h(Chip, null, a.role),
-                h(Chip, null, a.role === 'griller' ? '共享需求讨论' : (a.lane === 'issue' ? 'auto' : 'human')),
-                h('span', { className: 'flowv-hint', style: { flex: 1 } },
-                  (sup ? '上级 ' + (sup.label || sup.name) + ' · ' : '无上级 · ')
-                  + (a.sessionId ? '会话 ' + String(a.sessionId).slice(0, 14) : '无会话')
-                  + (a.sessionTitle && a.sessionTitle !== (a.label || a.name) ? ' · 标题 ' + a.sessionTitle : '')),
-                (function () {
-                  var opts = modelOptions(settings.catalog)
-                  var current = a.provider && a.model ? a.provider + '/' + a.model : ''
-                  var known = opts.some(function (o) { return o.key === current })
-                  if (opts.length) {
-                    return h('select', {
-                      className: 'flowv-select', style: { width: 200 },
-                      defaultValue: known ? current : '',
-                      onChange: function (e) {
-                        var raw = String(e.target.value || '')
-                        if (raw === '__custom') return
-                        if (!raw) return
-                        var parts = raw.split('/')
-                        // 走 selectModel：先落库，再对**已有会话**切换模型。
-                        // 之前这里走 agent.upsert，只改数据库不动会话，
-                        // 于是界面上模型变了、工人/子调度实际还跑在旧模型上。
-                        act('agent.selectModel', {
-                          agentId: a.id, provider: parts[0], model: parts.slice(1).join('/') || null,
-                        }).then(function (r) {
-                          var applied = r && r.applied
-                          if (applied && applied.ok === false) {
-                            // 已保存但会话没切成功：必须说清楚，否则又变成"以为改了"
-                            settingsNotice('模型已保存，但这个工位的会话没切过来：' + (applied.message || '未知原因'))
+              return h('tr', { className: 'flowv-agent-row', key: a.id },
+                h('td', { className: 'flowv-agent-pick' },
+                  h('input', {
+                    type: 'checkbox', 'data-flowv-agent': a.id, checked: pickOf(a),
+                    'aria-label': '勾选 ' + (a.label || a.name),
+                    onChange: function (e) { togglePick(a.id, e.target.checked) },
+                  })),
+                h('td', null,
+                  h('div', { className: 'flowv-agent-cell' },
+                    h('span', { className: 'flowv-agent-name' }, a.label || a.name),
+                    h(Chip, null, a.role),
+                    h(Chip, null, a.role === 'griller' ? '共享需求讨论' : (a.lane === 'issue' ? 'auto' : 'human'))),
+                  h('div', { className: 'flowv-hint' },
+                    (sup ? '上级 ' + (sup.label || sup.name) + ' · ' : '无上级 · ')
+                    + (a.sessionId ? '会话 ' + String(a.sessionId).slice(0, 14) : '无会话')
+                    + (a.sessionTitle && a.sessionTitle !== (a.label || a.name) ? ' · 标题 ' + a.sessionTitle : ''))),
+                h('td', { className: 'flowv-agent-model' }, modelText(a)),
+                h('td', { className: 'flowv-agent-effort' }, effortText(a)),
+                h('td', { className: 'flowv-agent-acts' },
+                  h('div', { className: 'flowv-agent-acts-in' },
+                    h(Btn, {
+                      small: true, onClick: function () {
+                        act('agent.session', { agentId: a.id }).then(function (res) {
+                          if (res && res.sessionId) {
+                            // 有会话就真的跳过去看一眼——只弹个 id 等于什么也没做
+                            if (!gotoSession(res.sessionId)) setNotice((a.label || a.name) + ' 的会话：' + res.sessionId)
                           }
                         })
                       },
-                    },
-                    h('option', { value: '' }, current && !known ? '当前：' + current : defaultModelLabel(settings.catalog)),
-                    known ? null : (current ? h('option', { value: current }, current) : null),
-                    opts.map(function (o) { return h('option', { key: o.key, value: o.key }, o.label) }),
-                    h('option', { value: '__custom' }, '手填…'))
-                  }
-                  return h('input', {
-                    className: 'flowv-input', style: { width: 180 }, placeholder: 'provider/model',
-                    defaultValue: current,
-                    onBlur: function (e) {
-                      var raw = String(e.target.value || '').trim()
-                      if (!raw) return
-                      var parts = raw.split('/')
-                      act('agent.selectModel', {
-                        agentId: a.id, provider: parts[0], model: parts.slice(1).join('/') || null,
-                      }).then(function (r) {
-                        var applied = r && r.applied
-                        if (applied && applied.ok === false) {
-                          settingsNotice('模型已保存，但这个工位的会话没切过来：' + (applied.message || '未知原因'))
-                        }
-                      })
-                    },
-                  })
-                })(),
-                h(Btn, {
-                  small: true, onClick: function () {
-                    act('agent.session', { agentId: a.id }).then(function (res) {
-                      if (res && res.sessionId) {
-                        // 有会话就真的跳过去看一眼——只弹个 id 等于什么也没做
-                        if (!gotoSession(res.sessionId)) setNotice((a.label || a.name) + ' 的会话：' + res.sessionId)
-                      }
-                    })
-                  },
-                }, '打开会话'),
-                h(Btn, {
-                  small: true, onClick: function () {
-                    if (!window.confirm('重置 ' + a.name + ' 的会话？会归档旧会话并投递案卷摘要。')) return
-                    act('agent.reset', { agentId: a.id })
-                  },
-                }, '重置'),
-                h(Btn, {
-                  small: true, onClick: function () {
-                    var target = window.prompt('改派给哪个上级（agentId，留空=无上级）', a.supervisorId || '')
-                    if (target === null) return
-                    act('agent.reparent', { agentId: a.id, supervisorId: target.trim() || null })
-                  },
-                }, '改派'),
-              )
+                    }, '打开会话'),
+                    h(Btn, {
+                      small: true, onClick: function () {
+                        if (!window.confirm('重置 ' + a.name + ' 的会话？会归档旧会话并投递案卷摘要。')) return
+                        act('agent.reset', { agentId: a.id })
+                      },
+                    }, '重置'),
+                    h(Btn, {
+                      small: true, onClick: function () {
+                        var target = window.prompt('改派给哪个上级（agentId，留空=无上级）', a.supervisorId || '')
+                        if (target === null) return
+                        act('agent.reparent', { agentId: a.id, supervisorId: target.trim() || null })
+                      },
+                    }, '改派'))))
             })
             body = h('div', null,
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 } },
+              h('div', { className: 'flowv-agent-preset' },
+                h('div', { className: 'flowv-field', style: { flex: '1 1 240px' } },
+                  h('label', null, '模型'),
+                  h('select', {
+                    className: 'flowv-select', 'aria-label': '预设模型',
+                    value: preset.key || '',
+                    onChange: function (e) { setPreset({ key: e.target.value, custom: '' }) },
+                  },
+                  h('option', { value: '' }, defaultModelLabel(settings.catalog)),
+                  presetOpts.map(function (o) { return h('option', { key: o.key, value: o.key }, o.label) })),
+                  h('input', {
+                    className: 'flowv-input', style: { marginTop: 4 }, placeholder: '或手填 provider/model',
+                    'aria-label': '手填模型',
+                    value: preset.custom || '',
+                    onChange: function (e) { setPreset({ custom: e.target.value }) },
+                  })),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '思考强度'),
+                  effortIds.length
+                    ? h('select', {
+                        className: 'flowv-select', 'aria-label': '预设思考强度',
+                        value: preset.effort || '',
+                        onChange: function (e) { setPreset({ effort: e.target.value }) },
+                      },
+                      h('option', { value: '' }, '模型默认'),
+                      effortIds.map(function (id) { return h('option', { key: id, value: id }, effortNames[id]) }))
+                    : h('input', {
+                        className: 'flowv-input', 'aria-label': '预设思考强度',
+                        placeholder: 'low / medium / high（可留空）',
+                        value: preset.effort || '',
+                        onChange: function (e) { setPreset({ effort: e.target.value }) },
+                      }),
+                  h('div', { className: 'flowv-hint' },
+                    effortIds.length ? '档位来自模型目录；「模型默认」= 不指定。' : '目录里没有档位信息，可手填（留空=不指定）。')),
+                h('div', { className: 'flowv-field' },
+                  h('label', null, '生效工位'),
+                  h('div', { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' } },
+                    h(Btn, {
+                      small: true, primary: true, disabled: busy === 'agents.applyModel',
+                      onClick: applyPreset,
+                    }, busy === 'agents.applyModel' ? '应用中…' : '应用到勾选的工位'),
+                    h(Btn, {
+                      small: true, onClick: function () {
+                        var next = {}
+                        sortedAgents.forEach(function (x) { next[x.id] = !allPicked })
+                        setPreset({ picked: next })
+                      },
+                    }, allPicked ? '全不选' : '全选')))),
+              h('div', { className: 'flowv-hint' },
+                '应用会同时改「落库的默认模型」和「这个工位已有会话的模型」；没勾的工位不动。'),
+              h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 6px' } },
                 h(Btn, {
                   small: true, primary: true, disabled: busy === 'project.init', onClick: function () {
                     // 一次性把项目里该有的工位会话全备齐：缺的建、有的按身份名改名、
@@ -4924,14 +5142,14 @@ var silentRead = function (inboxId) {
                     // busy 由 act() 里的 run() 负责设置与清空，这里不要自己动。
                     act('project.init', { projectId: project.id }).then(function (res) {
                       if (!res) return
-                      var lines = [res.message || '已初始化']
+                      var lines3 = [res.message || '已初始化']
                       var names = (res.created || []).concat(res.moved || []).map(function (x) { return x.name }).filter(Boolean)
-                      if (names.length) lines.push('备好的会话：' + names.join('、'))
+                      if (names.length) lines3.push('备好的会话：' + names.join('、'))
                       var bad = (res.failed || [])
-                      if (bad.length) lines.push('失败：' + bad.map(function (x) { return (x.name || x.agentId) + '（' + (x.message || '未知原因') + '）' }).join('；'))
+                      if (bad.length) lines3.push('失败：' + bad.map(function (x) { return (x.name || x.agentId) + '（' + (x.message || '未知原因') + '）' }).join('；'))
                       var renameFail = (res.existing || []).filter(function (x) { return x.renameMessage }).map(function (x) { return x.name + '：' + x.renameMessage })
-                      if (renameFail.length) lines.push('改名没成功（会话照常可用）：' + renameFail.join('；'))
-                      settingsNotice(lines.join(SEP))
+                      if (renameFail.length) lines3.push('改名没成功（会话照常可用）：' + renameFail.join('；'))
+                      settingsNotice(lines3.join(SEP))
                     })
                   },
                 }, busy === 'project.init' ? '初始化中…' : '初始化仓库'),
@@ -4941,8 +5159,17 @@ var silentRead = function (inboxId) {
                   small: true, onClick: function () { load() },
                 }, '刷新')),
               h('div', { className: 'flowv-hint', style: { marginBottom: 6 } },
-                '模型填 provider/model（例如 deepseek-official/deepseek-flash）；改派决定「谁能给谁派活」。'),
-              rows.length ? rows : h('div', { className: 'flowv-sec-empty' }, '没有代理'))
+                '表里写的是每个工位「实际会用的」：自己配过就显示自己的，否则显示它继承的那一级。改派决定「谁能给谁派活」。'),
+              rows.length
+                ? h('table', { className: 'flowv-agent-table' },
+                    h('thead', null, h('tr', null,
+                      h('th', null, ''),
+                      h('th', null, '工位'),
+                      h('th', null, '当前模型'),
+                      h('th', null, '思考强度'),
+                      h('th', null, '操作'))),
+                    h('tbody', null, rows))
+                : h('div', { className: 'flowv-sec-empty' }, '没有代理'))
           } else {
             // v1.4：危险操作先不展示。项目跟随工作区——在 DSH 里删除工作区，项目随之消失。
             body = h('div', { className: 'flowv-sec-empty' }, '这一栏先收起来了。项目跟随工作区：在 DSH 里删除工作区，对应项目会被清理。')
@@ -5114,12 +5341,15 @@ var silentRead = function (inboxId) {
         if (v.inbox) {
           var nOpen = Number(v.inbox.open) || 0;
           var nAnswered = Number(v.inbox.answered) || 0;
-          var nTotal = nOpen + nAnswered;
+          // v0.017：归档但人没读过的请示也算「有东西等你看」。
+          // 只按 open 亮角标的话，调度替人归档掉的那批会安静地留在分类里 —— 永远等不到那一下点击。
+          var nUnread = Math.max(Number(v.inbox.unread) || 0, nOpen);
+          var nTotal = Math.max(nOpen + nAnswered, nUnread);
           inboxFab = h('div', { className: 'flowv-fab' + (inbox ? ' is-under-sheet' : '') },
             h('button', {
-              className: 'flowv-fab-btn' + (nOpen > 0 ? ' is-active' : ''),
-              title: nOpen > 0
-                ? nOpen + ' 条等你回复'
+              className: 'flowv-fab-btn' + (nUnread > 0 ? ' is-active' : ''),
+              title: nUnread > 0
+                ? nUnread + ' 条未读请示'
                 : (nTotal > 0 ? nTotal + ' 条请示待归档（已回复，等调度处理）' : '请示箱（暂无内容）'),
               'aria-label': '打开 Inbox',
               onClick: function () {
@@ -5128,14 +5358,14 @@ var silentRead = function (inboxId) {
                   loading: false, replying: null, draft: '',
                   tab: 'todo', q: '', sel: null, quote: null, attach: null, attachOpen: false, attachDraft: '',
                   // v1.39：结构化答复的草稿 / 展开态 / 处理记录展开态
-                  answers: {}, expanded: {}, threadOpen: {},
+                  answers: {}, expanded: {}, threadOpen: {}, threadExtra: {},
                 });
                 refreshInbox({ includeArchived: false });
               },
             },
               h(InboxIcon),
               nTotal > 0
-                ? h('span', { className: 'flowv-badge' + (nOpen > 0 ? '' : ' is-idle') }, nTotal > 99 ? '99+' : String(nTotal))
+                ? h('span', { className: 'flowv-badge' + (nUnread > 0 ? '' : ' is-idle') }, nTotal > 99 ? '99+' : String(nTotal))
                 : null
             )
           );
@@ -5173,6 +5403,57 @@ var silentRead = function (inboxId) {
       }
     }
 
+    /**
+     * /flow 生效时的紫色徽标（v0.017）。
+     *
+     * 为什么挂在消息框工具行（conversation.input.left）：/plan 的 chip 就在那儿，
+     * 两个「当前会话处于某种特殊模式」的指示器应该在同一排，人才不用满屏找。
+     * 状态只存在宿主内存里（不落 flow.json），所以只能轮询 flow.mode：
+     * 2s 一次，比整块 metrics 的 8s 快一档 —— 敲完 /flow 回车基本立刻能看见。
+     * 点一下 = /flow off（和 Plan chip 的 ✕ 同一个心智），不用再跑去别处关。
+     */
+    var createFlowModeChip = function (React) {
+      return function FlowModeChip(props) {
+        var sessionId = (props && props.sessionId) || ''
+        var st = React.useState({ active: false, checked: false, busy: false })
+        var state = st[0]
+        var setState = st[1]
+        React.useEffect(function () {
+          if (!sessionId) return
+          var dead = false
+          var poll = function () {
+            postAction('flow.mode', { sessionId: sessionId }).then(function (r) {
+              if (dead || !r) return
+              setState(function (prev) { return { active: !!r.active, checked: true, busy: prev.busy } })
+            }).catch(function () {})
+          }
+          poll()
+          var timer = setInterval(poll, 2000)
+          return function () { dead = true; clearInterval(timer) }
+        }, [sessionId])
+        var off = React.useCallback(function () {
+          if (!sessionId || state.busy) return
+          setState(function (prev) { return Object.assign({}, prev, { busy: true }) })
+          // 失败就把胶囊留在原样（说明宿主没退成功），不假装已经退出。
+          postAction('flow.mode.off', { sessionId: sessionId }).then(function () {
+            setState({ active: false, checked: true, busy: false })
+          }).catch(function () {
+            setState(function (prev) { return Object.assign({}, prev, { busy: false }) })
+          })
+        }, [sessionId, state.busy])
+        if (!state.active) return null
+        return React.createElement('button', {
+          type: 'button',
+          className: 'flowv-flow-chip',
+          disabled: state.busy,
+          title: '当前会话处于 /flow 调度模式 —— 点击退出',
+          onClick: function (e) { e.preventDefault(); e.stopPropagation(); off() },
+        },
+          React.createElement('span', { className: 'flowv-flow-chip-dot', 'aria-hidden': 'true' }, '◈'),
+          '主调度')
+      }
+    }
+
     /** 注册「调度台」View：order 40，落在编队（fleet=30）右边。 */
     var registerPanel = function (ctx) {
       try {
@@ -5205,6 +5486,17 @@ var silentRead = function (inboxId) {
             order: 40,
             label: function () { return '调度台' },
           }, FlowView)
+        })
+        // v0.017：消息框里的「主调度」胶囊。list 槽（可能多人各挂一个），
+        // session 作用域会把 sessionId 作为 prop 传进来；宿主没有这个槽时静默跳过。
+        var FlowModeChip = createFlowModeChip(React)
+        ctx.slots.inject('conversation.input.left', function () {
+          return ctx.slots.register({
+            name: 'conversation.input.left',
+            id: 'flow-mode',
+            order: 10,
+            inject: function (sessionId) { return { sessionId: sessionId } },
+          }, FlowModeChip)
         })
       } catch (err) {
         logger.warn('调度台视图注册失败', err)
