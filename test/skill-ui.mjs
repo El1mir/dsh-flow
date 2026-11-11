@@ -264,14 +264,27 @@ const allChecks = nodes(tree,n=>n.type === 'input' && n.props.type === 'checkbox
 allChecks[0].props.onChange({target:{checked:false}})
 tree = await drive(props)
 assert.deepEqual(VIEW.project.config.allowedSkills, ['ui-styling'], 'direct deselection switches all to selected preserving other skills')
-await click('配置需求讨论模型（griller）')
+// v0.017：模型配置从「每行一个下拉」改成「预设一次 + 勾工位 + 应用」。
+// 这里验的是真正的交互链：取消勾选 griller → 手填模型 → 应用 → 只发给勾中的工位。
+await click('代理与模型')
 assert.ok(JSON.stringify(tree).includes('共享需求讨论'))
 const grillerRow = find(n=>n.props?.className === 'flowv-agent-row' && JSON.stringify(n).includes('共享需求讨论'))
-const model = nodes(grillerRow,n=>n.type === 'input' && n.props.placeholder === 'provider/model')[0]
-assert.ok(model,'shared griller has model control')
-model.props.onBlur({target:{value:'provider/discussion-model'}})
+assert.ok(grillerRow, '工位表里有共享需求讨论行')
+const grillerBox = nodes(grillerRow,n=>n.type === 'input' && n.props.type === 'checkbox')[0]
+assert.ok(grillerBox && grillerBox.props.checked, '默认全选')
+grillerBox.props.onChange({target:{checked:false}})
 tree = await drive(props)
-assert.ok(fetchLog.some(r=>r.body && JSON.parse(r.body).action === 'agent.selectModel' && JSON.parse(r.body).args.agentId === 'ag_grill'))
+const presetModel = nodes(tree,n=>n.props && n.props['aria-label'] === '手填模型')[0]
+assert.ok(presetModel, '目录为空时退化成手填 provider/model')
+presetModel.props.onChange({target:{value:'provider/discussion-model'}})
+tree = await drive(props)
+await click('应用到勾选的工位')
+const applyCall = fetchLog.filter(r=>r.body && JSON.parse(r.body).action === 'agents.applyModel').pop()
+assert.ok(applyCall, '应用按钮走 agents.applyModel')
+const applyArgs = JSON.parse(applyCall.body).args
+assert.deepEqual(applyArgs.agentIds, ['ag_018'], '取消勾选的 griller 不能被改')
+assert.equal(applyArgs.provider, 'provider')
+assert.equal(applyArgs.model, 'discussion-model')
 await click('项目配置')
 VIEW.project.config.allowedSkills = ['uninstalled-skill']
 tree = await drive(props)

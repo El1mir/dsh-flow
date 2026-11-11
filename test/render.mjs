@@ -625,4 +625,61 @@ assert.ok(drawerFlat.indexOf('回复') >= 0, '应当有提交回复按钮')
   const removedTree = await drive({ sessionId: 'ses_chief' })
   assert.equal(nodeList(removedTree, (n) => n.props && n.props.className === 'flowv-chat-selected-refs').length, 0, 'removed refs leave the composer')
 }
+// ⑦ 对话线懒加载（v0.018）：只渲染最近 5 条，点「向上加载」再取更早的一页。
+//    故意把 12 条全塞给客户端 —— 就算服务端没裁，界面也不能一次铺满。
+{
+  const long = JSON.parse(JSON.stringify(VIEW))
+  const ticket = long.inbox.items[0]
+  ticket.replies = Array.from({ length: 12 }, (_, i) => ({
+    id: 'r' + (i + 1), at: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString(),
+    role: i % 2 ? 'human' : 'dispatcher', by: i % 2 ? 'human:web' : 'dispatcher', content: '对话第 ' + (i + 1) + ' 条',
+  }))
+  ticket.replyTotal = 12
+  ticket.repliesHasMore = true
+  const askedPages = []
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url)
+    if (u.indexOf('/api/flow/action') >= 0) {
+      let action = ''
+      let args = {}
+      try { const body = JSON.parse(opts.body || '{}'); action = body.action || ''; args = body.args || {} } catch (e) { action = '' }
+      if (action === 'inbox.list') {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ result: { items: long.inbox.items, counts: { open: 1, answered: 0, archived: 0, unread: 1 } } }) }
+      }
+      if (action === 'inbox.replies') {
+        askedPages.push(args.before)
+        assert.equal(args.before, 'r8', '游标必须是当前界面上最旧的一条')
+        const page = ticket.replies.slice(2, 7).reverse()
+        return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true, total: 12, replies: page, hasMore: true, nextBefore: 'r3' } }) }
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true } }) }
+    }
+    const body = u.indexOf('session-project') >= 0
+      ? { ok: true, projectId: 'prj_1', sessionId: 'ses_chief' }
+      : long
+    return { ok: true, status: 200, text: async () => JSON.stringify(body) }
+  }
+  FlowView = null
+  await import('../client.js?render-test=long-thread')
+  reactHarness.reset()
+  registered.apply(ctx)
+  const baseTree2 = await drive({ sessionId: 'ses_chief' })
+  findFab(baseTree2)[0].props.onClick()
+  const firstDrawer = await drive({ sessionId: 'ses_chief' })
+  const firstText = findText(firstDrawer)
+  assert.ok(firstText.indexOf('对话第 12 条') >= 0, '最新的回复要显示')
+  assert.ok(firstText.indexOf('对话第 8 条') >= 0, '首屏含最近第 5 条')
+  assert.equal(firstText.indexOf('对话第 7 条'), -1, '更早的默认不渲染，实际：' + firstText.slice(0, 200))
+  assert.ok(firstText.indexOf('向上加载更早的 5 条') >= 0, '要有向上加载入口')
+  const more = nodeList(firstDrawer, (n) => n.type === 'button' && String((n.props || {}).className || '').includes('flowv-ib-more'))[0]
+  assert.ok(more && more.props.onClick, '加载按钮必须可点')
+  more.props.onClick({ stopPropagation() {} })
+  const secondDrawer = await drive({ sessionId: 'ses_chief' })
+  const secondText = findText(secondDrawer)
+  assert.deepEqual(askedPages, ['r8'], '只请求了更早的一页')
+  assert.ok(secondText.indexOf('对话第 7 条') >= 0, '加载后更早的一条要出现')
+  assert.ok(secondText.indexOf('对话第 3 条') >= 0, '整页都要合并进来')
+  assert.equal(secondText.indexOf('对话第 1 条'), -1, '没加载的仍不渲染')
+  assert.ok(secondText.indexOf('向上加载更早的 2 条') >= 0, '剩余条数要跟着更新，实际：' + secondText.slice(0, 200))
+}
 console.log('client render: all checks passed')

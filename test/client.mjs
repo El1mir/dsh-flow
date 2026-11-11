@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 let registered
+let registeredId
 const messageListeners = []
 const parentMessages = []
 const timers = []
@@ -20,6 +21,7 @@ const fakeReact = {
 }
 windowStub.__ModuleLoader__ = {
   load(definition) {
+    registeredId = definition.id
     registered = definition.factory((name) => (name === 'react' ? fakeReact : {}))
   },
 }
@@ -32,6 +34,10 @@ const documentStub = {
 }
 Object.assign(globalThis, { window: windowStub, document: documentStub, setTimeout(fn) { timers.push(fn); return timers.length } })
 await import('../client.js?contract-test=1')
+// 宿主按「包名」等待 client 注册（dsh-client-modules 的 arrive：factories.has(id)）；
+// id 写错不会报错，只会让该包整个 client 入口不激活。
+const pkgName = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name
+assert.equal(registeredId, pkgName, `client bundle 必须以包名注册（期望 ${pkgName}），实际 ${registeredId}`)
 assert.ok(registered && typeof registered.apply === 'function', 'client bundle exports apply')
 assert.deepEqual(registered.inject, ['sessions', 'uiWorkspace', 'layout', 'slots'])
 assert.ok(registered.inject.includes('slots'), 'client declares slots so the native panel can register')
@@ -98,8 +104,9 @@ assert.doesNotThrow(() => registered.apply(ctx), 'normal DSH page is unaffected 
     },
   }
   registered.apply(slotsCtx)
-  assert.deepEqual(injectedTargets, ['conversation.view'], '注册成会话里的一个 View（不在主面板/侧栏另开入口）')
-  assert.equal(registeredSlots.length, 1)
+  // v0.017：除了会话视图，还往消息框工具行挂 /flow 的「主调度」胶囊。
+  assert.deepEqual(injectedTargets, ['conversation.view', 'conversation.input.left'], '注册成会话里的一个 View（不在主面板/侧栏另开入口）+ 消息框胶囊')
+  assert.equal(registeredSlots.length, 2)
   const view = registeredSlots[0]
   assert.equal(view.options.name, 'conversation.view')
   assert.equal(view.options.id, 'flow')
@@ -113,6 +120,20 @@ assert.doesNotThrow(() => registered.apply(ctx), 'normal DSH page is unaffected 
   const html = view.component.toString()
   assert.match(html, /props\.sessionId/, '组件从 props.sessionId 取当前会话')
   assert.doesNotMatch(html, /readCurrentSessionId/, '不再依赖 DOM 猜会话 id')
+
+  // v0.017：/flow 胶囊挂在 conversation.input.left（list 槽，和 /plan 的 chip 同一排）。
+  const chip = registeredSlots[1]
+  assert.equal(chip.options.name, 'conversation.input.left', '胶囊进消息框工具行')
+  assert.equal(chip.options.id, 'flow-mode')
+  assert.equal(typeof chip.options.order, 'number')
+  assert.equal(typeof chip.options.inject, 'function', '槽要按 session 注入 sessionId')
+  assert.deepEqual(chip.options.inject('ses_x'), { sessionId: 'ses_x' })
+  assert.equal(typeof chip.component, 'function', '胶囊拿到组件')
+  const chipSrc = chip.component.toString()
+  assert.match(chipSrc, /flow\.mode/, '胶囊轮询宿主 flow 模式状态')
+  assert.match(chipSrc, /flow\.mode\.off/, '点胶囊退出 /flow')
+  assert.match(chipSrc, /主调度/, '胶囊文案')
+  assert.ok(styleNodes.some((n) => /\.flowv-flow-chip\{/.test(n.textContent || '')), '胶囊样式随客户端一起注入')
 
 // ---- v1.3：独立工作台已移除，看板/抽屉/设置全在视图里 --------------------
 {
@@ -221,7 +242,11 @@ assert.doesNotThrow(() => registered.apply(ctx), 'normal DSH page is unaffected 
     const src = String(view.component)
     assert.match(src, /modelOptions/, '要有把 catalog 摊平的选择项')
     assert.match(src, /catalog\.groups/, '读的是 DSH 的 groups 结构')
-    assert.match(src, /h\('select'[\s\S]{0,400}__custom/, '模型要能下拉选，并留「手填…」兜底')
+    // v0.017：模型选择从「每行一个下拉 + __custom 选项」改成「预设区一个下拉 + 一个手填框」。
+    assert.match(src, /flowv-agent-preset/, '工位模型要有预设区')
+    assert.match(src, /'aria-label': '预设模型'/, '预设区要能下拉选模型')
+    assert.match(src, /或手填 provider\/model/, '下拉覆盖不到时留手填兜底')
+    assert.match(src, /'aria-label': '预设思考强度'/, '预设区能选思考强度')
     assert.match(src, /defaultModelLabel/, '要显示「沿用默认」是哪个模型')
   }
 
@@ -410,6 +435,11 @@ assert.doesNotThrow(() => registered.apply(ctx), 'normal DSH page is unaffected 
     assert.match(file, /flowv-fab-btn/, '要有请示浮标按钮')
     assert.match(file, /var InboxIcon = function/, '浮标要有图标（不是纯文字）')
     assert.match(file, /flowv-badge/, '浮标要有未读角标')
+    // v0.018：对话线懒加载 —— 首屏只铺最近 5 条，往上翻走游标接口。
+    assert.match(file, /var loadOlderReplies = function/, '要有向上加载更早对话的加载器')
+    assert.match(file, /'inbox\.replies'/, '要调分页 action，而不是让服务端一次性塞全量')
+    assert.match(file, /flowv-ib-more/, '要渲染「向上加载更早的」入口')
+    assert.match(file, /threadExtra/, '已加载的历史要单独存，轮询刷新不能把它冲掉')
     // 层必须带 is-open：否则 opacity:0 / 位移，点了看不见
     assert.match(file, /flowv-drawer-mask/, '要有遮罩样式')
     assert.match(file, /flowv-sheet is-open/, '层必须带 is-open（否则透明或被推出屏幕）')

@@ -43,3 +43,6 @@ test/.render-preview.mjs
 *.bak
 .backup/
 .bak-*/
+
+# 本地备份包（含旧历史，绝不上传）
+*.bundle

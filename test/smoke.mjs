@@ -472,7 +472,87 @@ await t('v0.016.3 inbox.list 计数与 tab 过滤同口径（通知不算待我�
   const c = (countJson.result || countJson).counts || {}
   assert.equal(c.open, 1, '待我回只算真正待人回应的工单，实际 ' + c.open)
   assert.equal(c.notices, 1, '通知单独计数，实际 ' + c.notices)
+  // v0.017：通知没有「待人回」的语义，也不该拉高未读角标。
+  assert.equal(c.unread, 1, '未读只算真正待人看的工单，实际 ' + c.unread)
 })
+
+// ---- v0.018：对话线懒加载（列表只带最近 5 条，往上翻走 inbox.replies） ----
+{
+  const threadItem = await domain.askHuman({ taskId: countTask.id, kind: 'decision', topic: '长对话', problem: 'p', decisionNeeded: 'd' }, { role: 'dispatcher', id: 'ag_thread' })
+  await store.tx((s) => {
+    const it = s.human_inbox.find((x) => x.id === threadItem.id)
+    it.replies = Array.from({ length: 12 }, (_, i) => ({
+      id: 'sm' + (i + 1), at: new Date(Date.UTC(2026, 0, 2, 0, i)).toISOString(),
+      role: i % 2 ? 'human' : 'dispatcher', by: i % 2 ? 'human:web' : 'dispatcher', content: '第 ' + (i + 1) + ' 条',
+    }))
+  })
+  const listRes = await handler(req('POST', '/api/flow/action', { action: 'inbox.list', args: { projectId: countProj.id } }))
+  const listJson = await listRes.json()
+  const row = ((listJson.result || {}).items || []).find((x) => x.id === threadItem.id)
+  const page1Res = await handler(req('POST', '/api/flow/action', { action: 'inbox.replies', args: { inboxId: threadItem.id } }))
+  const page1 = await page1Res.json()
+  const page2Res = await handler(req('POST', '/api/flow/action', { action: 'inbox.replies', args: { inboxId: threadItem.id, before: page1.result.nextBefore } }))
+  const page2 = await page2Res.json()
+  await t('v0.018 inbox.list 只带最近 5 条对话，翻页走 inbox.replies 游标', () => {
+    assert.equal(row.replies.length, 5, '列表只带 5 条')
+    assert.equal(row.replies[4].id, 'sm12', '带的是最新的')
+    assert.equal(row.replyTotal, 12)
+    assert.equal(row.repliesHasMore, true)
+    assert.deepEqual(page1.result.replies.map((r) => r.id), ['sm8', 'sm9', 'sm10', 'sm11', 'sm12'])
+    assert.equal(page1.result.hasMore, true)
+    assert.deepEqual(page2.result.replies.map((r) => r.id), ['sm3', 'sm4', 'sm5', 'sm6', 'sm7'])
+    assert.equal(page2.result.nextBefore, 'sm3')
+  })
+}
+
+// ---- v0.017：/flow 模式的读与关（宿主内存态，客户端 chip 靠这两个 action） ----
+{
+  const modeRes = await handler(req('POST', '/api/flow/action', { action: 'flow.mode', args: { sessionId: 'ses_flow' } }))
+  const modeJson = await modeRes.json()
+  await t('flow.mode 没有 flowMode 时返回 active:false（不炸）', () => {
+    assert.equal(modeJson.ok, true)
+    assert.equal(modeJson.result.active, false)
+  })
+  const offRes = await handler(req('POST', '/api/flow/action', { action: 'flow.mode.off', args: { sessionId: 'ses_flow' } }))
+  const offJson = await offRes.json()
+  await t('flow.mode.off 没有宿主 flowMode 时明确报错', () => {
+    // 动作级失败：HTTP 信封仍是 200，失败在 result 里（客户端 postAction 据此抛错）。
+    assert.equal(offJson.result.ok, false)
+    assert.match(offJson.result.message, /flow/)
+  })
+  const exited = []
+  host.flowMode = { isActive: (sid) => sid === 'ses_flow', exit: (sid) => exited.push(sid) }
+  const onRes = await handler(req('POST', '/api/flow/action', { action: 'flow.mode', args: { sessionId: 'ses_flow' } }))
+  const onJson = await onRes.json()
+  const offRes2 = await handler(req('POST', '/api/flow/action', { action: 'flow.mode.off', args: { sessionId: 'ses_flow' } }))
+  const offJson2 = await offRes2.json()
+  await t('flow.mode / flow.mode.off 真实读写宿主 flow 模式', () => {
+    assert.equal(onJson.result.active, true)
+    assert.deepEqual(exited, ['ses_flow'], '关闭要真的调 exit')
+    assert.equal(offJson2.result.active, false)
+  })
+}
+
+// ---- v0.017：通知自动归档的分钟数（0=关闭，上限一周） ---------------------
+{
+  const get = async () => {
+    const r = await handler(req('POST', '/api/flow/action', { action: 'settings.get', args: {} }))
+    return ((await r.json()).result || {}).settings || {}
+  }
+  const set = async (v) => {
+    const r = await handler(req('POST', '/api/flow/action', { action: 'settings.set', args: { noticeArchiveMinutes: v } }))
+    return ((await r.json()).result || {}).settings || {}
+  }
+  const a = await set(30)
+  const b = await set(99999)
+  const c = await set(-5)
+  await t('settings 记住通知 TTL：夹在一周以内、非法值不改', async () => {
+    assert.equal(a.noticeArchiveMinutes, 30)
+    assert.equal(b.noticeArchiveMinutes, 10080, '上限一周')
+    assert.equal(c.noticeArchiveMinutes, 10080, '负数不覆盖已有值')
+    assert.equal((await get()).noticeArchiveMinutes, 10080)
+  })
+}
 
 
 const badRes = await handler(req('POST', '/api/flow/action', { action: 'task.move', args: { taskId: 'T-999', action: 'claim' } }))
