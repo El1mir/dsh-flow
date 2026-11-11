@@ -14,7 +14,9 @@
  * 全部包在 try/catch 里，抛错会白屏。
  */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-flow',
+  // 必须是包名：宿主 dsh-client-modules 按 package name 等待 client 注册，
+  // id 不匹配不报错，只会让整个 client 入口静默不激活（web boot: 1 entry did not activate）。
+  id: '@el1mir/dsh-flow',
   factory: (require) => {
     var logger = {
       warn: (m, e) => console.warn('[dsh-flow]', m, e),
@@ -2399,7 +2401,7 @@ window.__ModuleLoader__.load({
         // ---- mergeState 的读侧表（ADR-0005）------------------------------------
         //
         // 为什么在这里内联一份，而不是 import lib/merge-state.js：
-        // client.js 是 window.__ModuleLoader__ 的 bundle（id: '@local/dsh-flow'），
+        // client.js 是 window.__ModuleLoader__ 的 bundle（id: '@el1mir/dsh-flow'），
         // 整个文件没有 import/export —— 宿主只负责把模块装进浏览器，浏览器里拿不到
         // lib/*.js 的模块图，相对路径的 ESM import 在这里根本不会被解析。
         // 所以表在客户端必须有一份**同形状的副本**。

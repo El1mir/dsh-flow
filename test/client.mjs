@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 let registered
+let registeredId
 const messageListeners = []
 const parentMessages = []
 const timers = []
@@ -20,6 +21,7 @@ const fakeReact = {
 }
 windowStub.__ModuleLoader__ = {
   load(definition) {
+    registeredId = definition.id
     registered = definition.factory((name) => (name === 'react' ? fakeReact : {}))
   },
 }
@@ -32,6 +34,10 @@ const documentStub = {
 }
 Object.assign(globalThis, { window: windowStub, document: documentStub, setTimeout(fn) { timers.push(fn); return timers.length } })
 await import('../client.js?contract-test=1')
+// 宿主按「包名」等待 client 注册（dsh-client-modules 的 arrive：factories.has(id)）；
+// id 写错不会报错，只会让该包整个 client 入口不激活。
+const pkgName = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name
+assert.equal(registeredId, pkgName, `client bundle 必须以包名注册（期望 ${pkgName}），实际 ${registeredId}`)
 assert.ok(registered && typeof registered.apply === 'function', 'client bundle exports apply')
 assert.deepEqual(registered.inject, ['sessions', 'uiWorkspace', 'layout', 'slots'])
 assert.ok(registered.inject.includes('slots'), 'client declares slots so the native panel can register')
