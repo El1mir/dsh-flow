@@ -8,13 +8,19 @@ import assert from 'node:assert/strict'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { Store } from '../lib/core.js'
 import { FlowDomain } from '../lib/domain.js'
-import { createDispatcher } from '../lib/dispatch.js'
+import { createDispatcher, buildInspectPacket } from '../lib/dispatch.js'
 import { createScheduler } from '../lib/scheduler.js'
 
 const NL = String.fromCharCode(10)
 const root = mkdtempSync(join(tmpdir(), 'flow-kinds-'))
+const gitRepo = join(root, 'repo')
+await import('node:fs').then(({ mkdirSync }) => mkdirSync(gitRepo))
+execFileSync('git', ['init', '-q'], { cwd: gitRepo })
+execFileSync('git', ['-c', 'user.name=test', '-c', 'user.email=test@example.com', 'commit', '--allow-empty', '-qm', 'baseline'], { cwd: gitRepo })
+const currentHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: gitRepo, encoding: 'utf8' }).trim()
 const store = new Store(join(root, 'flow.json'))
 await store.load()
 const rt = {
@@ -129,6 +135,74 @@ await t('⑦ acceptanceKinds 迁移后与 acceptance 等长（老卡默认 auto�
   const task = store.state.tasks[c1.id]
   assert.equal(task.acceptanceKinds.length, task.acceptance.length)
   assert.deepEqual(task.acceptanceKinds, ['auto', 'auto'])
+})
+
+const proven = await verifyingCard({ title: '逐项证据优先', acceptance: ['能跑'], statuses: ['pass'], tests: '完整套件 skipped；逐项命令已通过' })
+await t('⑧ 逐项 pass 且证据齐全优先于汇总 skipped', async () => {
+  await scheduler.tick()
+  assert.ok(['merging', 'done'].includes(store.state.tasks[proven.id].column))
+})
+
+await t('⑨ 缺证据交给调度且同缺口只通知一次，不开人工单', async () => {
+  const card = await verifyingCard({ title: '缺证明', acceptance: ['能跑'], statuses: ['pass'] })
+  await store.tx((s) => { s.tasks[card.id].stopReport.acceptanceStatus[0].evidence = '  ' })
+  await scheduler.tick()
+  await scheduler.tick()
+  assert.equal(store.state.tasks[card.id].column, 'verifying')
+  assert.equal(domain.openInboxFor(card.id).length, 0)
+  const messages = store.state.message_log.filter((m) => m.taskId === card.id && m.event === 'task.acceptance-evidence')
+  assert.equal(messages.length, 1)
+})
+
+await t('⑩ 调度员可在当前 HEAD 上补录自动验收证据', async () => {
+  const card = await verifyingCard({ title: '调度补证闭环', acceptance: ['自动检查通过'], statuses: ['not-run'] })
+  await store.tx((s) => { s.tasks[card.id].headSha = currentHead; s.tasks[card.id].worktree = { path: gitRepo }; s.tasks[card.id].activeRunId = null })
+  const payload = (headSha) => ({ headSha, acceptanceStatus: [{ index: 0, status: 'pass', evidence: 'node test/x.mjs exit 0' }] })
+  const headError = await domain.move(card.id, 'supplement_evidence', { role: 'dispatcher', id: 'ag_d' }, payload('wrong')).then(() => '', (err) => err.message)
+  assert.match(headError, /HEAD/, headError)
+  await domain.move(card.id, 'supplement_evidence', { role: 'dispatcher', id: 'ag_d' }, payload(currentHead))
+  assert.equal(store.state.tasks[card.id].stopReport.acceptanceStatus[0].status, 'pass')
+  assert.equal(store.state.tasks[card.id].column, 'verifying')
+  assert.ok(store.state.events.some((e) => e.type === 'task.evidence_supplemented' && e.payload.taskId === card.id))
+})
+
+await t('补证仅允许调度员与 auto 项，拒绝旧 HEAD 和无 active run', async () => {
+  const card = await verifyingCard({ title: '补证权限边界', acceptance: ['人验', '环境验', '自动验'], kinds: ['human', 'env', 'auto'], statuses: ['not-run', 'not-run', 'not-run'] })
+  await store.tx((s) => { s.tasks[card.id].headSha = currentHead; s.tasks[card.id].worktree = { path: gitRepo }; s.tasks[card.id].activeRunId = null })
+  const act = (actor, index, headSha = currentHead) => domain.move(card.id, 'supplement_evidence', actor, { headSha, acceptanceStatus: [{ index, status: 'pass', evidence: 'node test/x.mjs exit 0' }] })
+  await assert.rejects(act({ role: 'worker', id: worker.id }, 2), /只有调度员/)
+  await assert.rejects(act({ role: 'dispatcher', id: 'ag_d' }, 0), /只能补录系统可验项/)
+  await assert.rejects(act({ role: 'dispatcher', id: 'ag_d' }, 1), /只能补录系统可验项/)
+  await assert.rejects(act({ role: 'dispatcher', id: 'ag_d' }, 2, 'stale'), /HEAD/)
+  await store.tx((s) => { s.tasks[card.id].activeRunId = 'run_active' })
+  await assert.rejects(act({ role: 'dispatcher', id: 'ag_d' }, 2), /没有运行任务/)
+  assert.equal(store.state.tasks[card.id].stopReport.acceptanceStatus[2].status, 'not-run')
+})
+
+await t('⑪ 巡检包保留逐项验收原文和证明', async () => {
+  const packet = buildInspectPacket(proven, '验收', null, { rulesInSystem: false })
+  assert.match(packet, /能跑/)
+  assert.match(packet, /cmd:0/)
+})
+
+await t('⑪ fail、缺报告、未运行保持独立分类且不消耗失败预算', async () => {
+  for (const [status, expected] of [['fail', 'failed'], ['not-run', 'not-run'], [null, 'missing-report']]) {
+    const card = await verifyingCard({ title: expected, acceptance: ['检查'], statuses: [status] })
+    if (status === null) await store.tx((s) => { s.tasks[card.id].stopReport.acceptanceStatus = [] })
+    const result = await scheduler.tick()
+    assert.equal(result.accepted.find((x) => x.taskId === card.id).skipped, expected)
+    assert.equal(store.state.tasks[card.id].attempts || 0, 0)
+    assert.equal(domain.openInboxFor(card.id).length, 0)
+  }
+})
+await t('⑫ 老报告未执行仍保守处理；没有调度员才请人', async () => {
+  const card = await verifyingCard({ title: 'legacy', acceptance: [], statuses: [], tests: '未执行' })
+  await store.tx((s) => { for (const agent of Object.values(s.agents)) if (agent.role === 'dispatcher') agent.enabled = false })
+  await scheduler.tick()
+  assert.equal(store.state.tasks[card.id].column, 'verifying')
+  assert.equal(domain.openInboxFor(card.id).length, 1)
+  await scheduler.tick()
+  assert.equal(domain.openInboxFor(card.id).length, 1)
 })
 
 if (fails.length) { console.log(NL + pass + ' 通过，' + fails.length + ' 失败'); process.exitCode = 1 }

@@ -3507,7 +3507,7 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
     assert.equal(ap.acceptedBy, "system:advance", "系统代收要能辨认，实际：" + ap.acceptedBy)
   })
 
-  await t("证据写「未执行」时不自动收，转请示箱等人决定", async () => {
+  await t("证据写「未执行」时交调度补证，不直接要求人工决定", async () => {
     const task = await domain.createTask(mp31.id, { title: "没跑测试", lane: "human" })
     await domain.move(task.id, "claim", { role: "dispatcher", id: "ag_d" })
     await domain.setPlan(task.id, "方案：改一个文件。".repeat(10), { role: "dispatcher", id: "ag_d" })
@@ -3519,8 +3519,7 @@ await t('tick 补位派工', () => assert.ok(tick2.dispatched.some((x) => x.task
     const after = store.state.tasks[task.id]
     assert.equal(after.column, "verifying", "证据不足不能自动收，实际：" + after.column)
     const asked = domain.inboxList({ projectId: mp31.id, taskId: task.id });
-    assert.ok(asked.length >= 1, "应当落一条请示让人决定")
-    assert.equal(asked[0].kind, "decision")
+    assert.equal(asked.length, 0, "先通知调度核查，不直接开人工请示")
   })
 }
 

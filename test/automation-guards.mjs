@@ -98,7 +98,7 @@ await t('autoAccept：需要合并的卡只能推到 merging，不能直接 done
       column: 'verifying',
       phase: 'awaiting-acceptance',
       mergeState: 'pending',
-      stopReport: { summary: '改完了', tests: 'npm test 12 passed', acceptanceStatus: [{ index: 0, status: 'pass' }] },
+      stopReport: { summary: '改完了', tests: 'npm test 12 passed', acceptanceStatus: [{ index: 0, status: 'pass', evidence: 'npm test exit 0' }] },
     })
   })
   await sched.tick()
@@ -115,7 +115,7 @@ await t('autoAccept：没有可合的东西才落 done-no-merge', async () => {
       phase: 'awaiting-acceptance',
       mergeState: 'none',
       worktree: false,
-      stopReport: { summary: '文档改动', tests: '无（只改文档）', acceptanceStatus: [{ index: 0, status: 'pass' }] },
+      stopReport: { summary: '文档改动', tests: '无（只改文档）', acceptanceStatus: [{ index: 0, status: 'pass', evidence: 'npm test exit 0' }] },
     })
   })
   await sched.tick()
@@ -134,7 +134,7 @@ await t('自动车道留痕只算 visibility=auto 的卡', async () => {
         visibility,
         mergeState: 'none',
         worktree: false,
-        stopReport: { summary: '完成', tests: 'none', acceptanceStatus: [{ index: 0, status: 'pass' }] },
+        stopReport: { summary: '完成', tests: 'none', acceptanceStatus: [{ index: 0, status: 'pass', evidence: 'npm test exit 0' }] },
       })
     })
     return task
