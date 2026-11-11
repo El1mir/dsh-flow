@@ -75,9 +75,10 @@ const windowStub = {
 const styleNodes = []
 const documentStub = {
   documentElement: { attributes: {}, setAttribute(k, v) { this.attributes[k] = v } },
-  createElement() { return { textContent: '' } },
-  getElementById() { return null },
+  createElement() { return { id: '', textContent: '' } },
+  getElementById(id) { return id === 'flow-view-style' ? styleNodes.find((n) => n.id === id) || null : null },
   head: { appendChild(n) { styleNodes.push(n) } },
+  body: { appendChild(n) { styleNodes.push(n) } },
 }
 
 const reactHarness = makeReact()
@@ -95,12 +96,16 @@ const VIEW = {
   generatedAt: '2026-11-01T08:00:00.000Z',
   control: { halted: false, haltedAt: null, haltedBy: null, reason: null },
   builtinPrompts: { worker: 'w', dispatcher: 'd' },
+  laneMessages: { items: [
+    { id: 'lm_0001', body: '先看下 T-1 的进度', from: { kind: 'agent', lane: 'human', name: '调度员' }, to: { lane: 'human' }, refs: [{ kind: 'task', id: 'T-1', label: '测试卡' }], createdAt: '2026-11-01T07:30:00.000Z', deliveredAt: '2026-11-01T07:30:01.000Z' },
+    { id: 'lm_0002', body: '我正在复现并补回归测试。', from: { kind: 'human', lane: 'human', name: '我' }, to: { lane: 'issue' }, refs: [], createdAt: '2026-11-01T07:35:00.000Z', deliveredAt: '2026-11-01T07:35:01.000Z' },
+  ] },
   inbox: {
     open: 1,
     answered: 0,
     items: [{
       id: 'hi_test1', projectId: 'prj_1', taskId: 'T-1', from: 'ag_018', lane: 'human',
-      kind: 'decision', topic: '要不要改接口',
+      kind: 'decision', category: 'decision', topic: '要不要改接口',
       problem: '现有 retryFailedTasks 返回 void',
       decisionNeeded: '改成返回 Result 还是保持 void？',
       where: 'T-1 · services/note.ts:42',
@@ -126,9 +131,10 @@ const VIEW = {
   ],
   tasks: {
     todo: [],
-    running: [{ id: 'T-1', title: '测试卡', column: 'running', phase: 'executing', projectId: 'prj_1' }],
+    running: [{ id: 'T-1', title: '测试卡', column: 'running', phase: 'executing', projectId: 'prj_1', progress: { summary: '正在补集成回归。' } }],
   },
   leases: [], runs: [], approvals: [], events: [], sessions: [],
+  progress: { 'T-1': { summary: '正在补集成回归。' } },
   // lanes 是对象（key = human/issue），每个值带 dispatchers/workers/budget 等
   lanes: {
     human: { lane: 'human', dispatchers: 1, workers: 2, running: 1, blocked: 0, waitingWorker: 0, waitingSupervisor: 0, budget: { max: 0.12 } },
@@ -151,6 +157,8 @@ globalThis.fetch = async (url, opts) => {
       const body = { result: { items: VIEW.inbox.items, counts: { open: 1, answered: 0, archived: 0 } } }
       return { ok: true, status: 200, text: async () => JSON.stringify(body) }
     }
+    if (action === 'lane.message.post') return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true } }) }
+    if (action === 'lane.message.list') return { ok: true, status: 200, text: async () => JSON.stringify({ result: { items: VIEW.laneMessages.items } }) }
     return { ok: true, status: 200, text: async () => JSON.stringify({ result: { ok: true } }) }
   }
   const body = u.indexOf('session-project') >= 0
@@ -324,6 +332,69 @@ assert.ok(drawerFlat.indexOf('需要你补充') >= 0, '补充分区应当渲染�
 assert.ok(drawerFlat.indexOf('flowv-ask') >= 0, '每个 ask 要渲染成可回答的控件')
 assert.ok(drawerFlat.indexOf('flowv-ib-sec') >= 0, '分区容器应当渲染')
 assert.ok(drawerFlat.indexOf('回复') >= 0, '应当有提交回复按钮')
+
+// ⑥ Inbox 分类、搜索、移动端列表/详情切换必须按当前视图状态工作。
+{
+  const cssText = styleNodes.map((node) => node.textContent || '').join('\n')
+  assert.match(cssText, /\.flowv-mail-arch\{[^}]*\}/, '归档按钮样式必须是有效 CSS')
+  assert.doesNotMatch(cssText, /transition:[^}]*\]\}/, '归档选择器不能带损坏的方括号')
+  const decisionTab = nodeList(treeWithDrawer, (n) => n.type === 'button' && String((n.props || {}).className || '').includes('flowv-mail-tab') && (n.children || []).includes('决定'))[0]
+  assert.ok(decisionTab, '应有决定分类')
+  assert.equal(findText(decisionTab), '决定1', '决定分类显示其实际工单数，不显示归档数')
+  assert.match(cssText, /\.flowv-mail-tabs\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '分类在窄侧栏内换行，不产生横向滚动')
+  assert.ok(cssText.includes('.flowv-mail-row-preview'), '列表摘要应有独立的可读样式')
+
+  const row = nodeList(treeWithDrawer, (n) => String((n.props || {}).className || '').includes('flowv-mail-row') && typeof n.props.onClick === 'function')[0]
+  assert.ok(row, '应有可选择的工单行')
+  assert.equal(row.props['aria-pressed'], 'true', '当前选中的工单行应暴露选择状态')
+  assert.equal(row.props['aria-label'], '要不要改接口，T-1，未读')
+  assert.ok(JSON.stringify(row).includes('决定'), '分类徽标应显示中文标签而非内部类别值')
+  assert.ok(JSON.stringify(row).includes('现有 retryFailedTasks 返回 void'), '行内应显示问题摘要')
+  const searchInput = nodeList(treeWithDrawer, (n) => String((n.props || {}).className || '').includes('flowv-mail-search'))[0]
+  assert.equal(searchInput.props['aria-label'], '搜索工单标题、编号或内容')
+  row.props.onClick({ stopPropagation() {} })
+  const detailTree = await drive({ sessionId: 'ses_chief' })
+  assert.ok(nodeList(detailTree, (n) => (n.props || {}).className === 'flowv-mail is-detail-open').length, '选择工单切换到窄屏详情模式')
+  const back = nodeList(detailTree, (n) => (n.props || {})['aria-label'] === '返回工单列表')[0]
+  assert.ok(back, '详情应提供可访问的返回列表控件')
+  back.props.onClick()
+  let inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.ok(nodeList(inboxTree, (n) => (n.props || {}).className === 'flowv-mail').length, '返回后恢复列表模式')
+
+  let search = nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-search'))[0]
+  search.props.onChange({ target: { value: 'retryFailedTasks' } })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.equal(nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-row') && typeof n.props.onClick === 'function').length, 1, '输入时立即按问题正文过滤')
+  search = nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-search'))[0]
+  search.props.onChange({ target: { value: 'nothing-matches' } })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.equal(nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-row') && typeof n.props.onClick === 'function').length, 0)
+  assert.ok(findText(inboxTree).includes('没有匹配的工单'), '无匹配搜索要有明确空状态')
+
+  search = nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-search'))[0]
+  search.props.onChange({ target: { value: '' } })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  const composer = nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-textarea') && typeof n.props.onChange === 'function')[0]
+  composer.props.onChange({ target: { value: '收到，我会按建议处理。' } })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  const selectedRow = nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-row') && typeof n.props.onClick === 'function')[0]
+  selectedRow.props.onClick({ stopPropagation() {} })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.equal(nodeList(inboxTree, (n) => n.props['aria-label'] === '回复这条工单')[0].props.value, '收到，我会按建议处理。', '重新选择工单不能清掉草稿')
+  findByText(inboxTree, '附文件')[0].props.onClick({ stopPropagation() {} })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  nodeList(inboxTree, (n) => String(n.props.className || '').includes('flowv-attach-in'))[0].props.onKeyDown({ key: 'Enter', preventDefault() {}, target: { value: 'test/evidence.txt' } })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.ok(findText(inboxTree).includes('test/evidence.txt'), '添加附件后清空输入不能覆盖附件状态')
+  const send = nodeList(inboxTree, (n) => typeof n.props.onClick === 'function' && (n.children || []).includes('发送回复'))[0]
+  assert.ok(send, '回复框有发送操作')
+  send.props.onClick({ stopPropagation() {} })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  const approvalTab = nodeList(inboxTree, (n) => n.type === 'button' && (n.children || []).includes('待批准'))[0]
+  approvalTab.props.onClick({ stopPropagation() {} })
+  inboxTree = await drive({ sessionId: 'ses_chief' })
+  assert.equal(nodeList(inboxTree, (n) => String((n.props || {}).className || '').includes('flowv-mail-row') && typeof n.props.onClick === 'function').length, 0, '切换分类清掉回复后保留项，不将无关工单留在列表')
+}
 
 // ⑤ v0.015.1：问答类工单的「归档」按钮必须真的在（v0.013 改成消息流时它只剩在已归档分支里，
 //    等于永远点不到；线上症状就是「归档会话的按键又不见了」）。
@@ -509,5 +580,49 @@ assert.ok(drawerFlat.indexOf('回复') >= 0, '应当有提交回复按钮')
   assert.ok(JSON.stringify(noticeDrawer).indexOf('flowv-mail-row') >= 0, '通知 tab 列表里要有这一行')
   assert.equal(JSON.stringify(noticeDrawer).indexOf('flowv-mail-empty'), -1,
     '选中通知后右栏不该再是空占位')
+}
+{
+  let openMessages = nodeList(treeWithDrawer, (n) => n.type === 'button' && (n.children || []).includes('消息'))[0]
+  assert.ok(openMessages, 'Inbox has a messages pane')
+  openMessages.props.onClick({ stopPropagation() {} })
+  await drive({ sessionId: 'ses_chief' })
+  const messageTree = await drive({ sessionId: 'ses_chief' })
+  const messageNodes = nodeList(messageTree, (n) => n.props && n.props.className === 'flowv-chat-stream')
+  assert.ok(messageNodes.length, 'lane messages should render as a conversation stream')
+  assert.ok(JSON.stringify(messageTree).includes('flowv-task-ref-card'), 'task references should render as preview cards')
+  assert.ok(findText(messageTree).includes('正在补集成回归。'), 'task reference preview should include current progress')
+  assert.ok(nodeList(messageTree, (n) => n.props && n.props.className === 'flowv-chat-composer').length, 'chat composer has its own region')
+  assert.equal(nodeList(messageTree, (n) => n.type === 'select' && n.props && n.props.className === 'flowv-select' && (n.children || []).includes('所有调度')).length, 0, 'recipient picker is redundant with the selected conversation')
+  assert.equal(nodeList(messageTree, (n) => n.type === 'button' && n.props && n.props.className && String(n.props.className).includes('flowv-chat-conversation') && n.props['aria-pressed'] === 'true').length, 1, 'exactly one lane conversation is selected')
+  assert.ok(findText(messageTree).includes('先看下 T-1 的进度'), 'human lane initially shows human dispatcher conversation')
+  assert.equal(messageNodes[0].children.some((n) => findText(n).includes('我正在复现并补回归测试。')), false, 'human lane excludes messages from the other lane')
+  const autoLane = nodeList(messageTree, (n) => n.props && String(n.props.className || '').includes('flowv-chat-conversation') && findText(n).includes('自动车道') && typeof n.props.onClick === 'function')[0]
+  assert.ok(autoLane, 'automatic lane conversation is selectable')
+  autoLane.props.onClick()
+  const issueTree = await drive({ sessionId: 'ses_chief' })
+  assert.ok(findText(issueTree).includes('我正在复现并补回归测试。'), 'automatic lane shows its own messages')
+  const issueStream = nodeList(issueTree, (n) => n.props && n.props.className === 'flowv-chat-stream')[0]
+  assert.equal(issueStream.children.some((n) => findText(n).includes('先看下 T-1 的进度')), false, 'automatic lane excludes human-lane messages')
+  assert.equal(nodeList(issueTree, (n) => n.type === 'button' && n.props && n.props.className && String(n.props.className).includes('flowv-chat-conversation') && n.props['aria-pressed'] === 'true').length, 1, 'lane switch updates the active conversation')
+  assert.equal(nodeList(messageTree, (n) => n.props && n.props.className === 'flowv-chat-composer').length, 1, 'composer send action is in its own visible region')
+  const chatCss = styleNodes.map((n) => n.textContent).join('\n')
+  assert.ok(nodeList(messageTree, (n) => n.props && n.props.className === 'flowv-fab is-under-sheet').length, 'Inbox floating action is behind the open sheet')
+  assert.match(chatCss, /\.flowv-fab\.is-under-sheet\{z-index:190\}/)
+  assert.match(chatCss, /\.flowv-chat-composer\{position:relative;z-index:1;/)
+  assert.match(chatCss, /\.flowv-sheet-stack\{position:fixed;inset:0;[^}]*overflow:hidden/)
+  assert.match(chatCss, /\.flowv-sheet-layer\{position:absolute;inset:0;[^}]*display:flex;[^}]*min-height:0;[^}]*overflow:hidden/)
+  assert.match(chatCss, /\.flowv-drawer\.flowv-sheet\{[^}]*min-height:0;overflow:hidden/)
+  assert.match(chatCss, /\.flowv-chat-stream\{[^}]*overflow:auto/)
+  assert.match(chatCss, /\.flowv-chat-main\{[^}]*min-height:0/)
+  const taskOption = nodeList(messageTree, (n) => n.props && String(n.props.className || '').includes('flowv-chat-task-option'))[0]
+  assert.ok(taskOption && taskOption.props.onClick, 'task reference can be selected')
+  taskOption.props.onClick()
+  const selectedTree = await drive({ sessionId: 'ses_chief' })
+  assert.ok(nodeList(selectedTree, (n) => n.props && n.props.className === 'flowv-chat-selected-refs').length, 'selected task refs appear above composer')
+  const removeRef = nodeList(selectedTree, (n) => n.props && String(n.props.className || '').includes('flowv-task-ref-remove'))[0]
+  assert.ok(removeRef && removeRef.props['aria-label'], 'selected refs have an accessible remove action')
+  removeRef.props.onClick()
+  const removedTree = await drive({ sessionId: 'ses_chief' })
+  assert.equal(nodeList(removedTree, (n) => n.props && n.props.className === 'flowv-chat-selected-refs').length, 0, 'removed refs leave the composer')
 }
 console.log('client render: all checks passed')

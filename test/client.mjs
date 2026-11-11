@@ -285,7 +285,7 @@ assert.doesNotThrow(() => registered.apply(ctx), 'normal DSH page is unaffected 
     assert.match(src, /flowv-crumb/, '要有面包屑')
     assert.match(src, /全部关闭/, '多层时要有"全部关闭"出口')
     // 全屏覆盖：不再是被推到屏幕右侧的抽屉
-    assert.match(src, /\.flowv-drawer\.flowv-sheet\{position:absolute/, '详情层要覆盖整个视图，不再是右侧抽屉')
+    assert.match(src, /\.flowv-drawer\.flowv-sheet\{position:fixed;inset:0;/, '详情层要固定覆盖整个视图')
 
     // usePresence 用了 React，而 React 是 createFlowView 的**参数**。
     // 定义在外面就取不到（ReferenceError）——这个只有真渲染才炸，所以静态钉住。

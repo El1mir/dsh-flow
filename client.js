@@ -518,6 +518,7 @@ window.__ModuleLoader__.load({
       '.flowv-badge.is-idle{background:var(--dsw-alias-label-tertiary)}',
       /* 请示箱浮标：固定在右下角，任何滚动位置都点得到 */
       '.flowv-fab{position:fixed;right:20px;bottom:20px;z-index:240}',
+      '.flowv-fab.is-under-sheet{z-index:190}',
       '.flowv-fab-btn{position:relative;width:44px;height:44px;border-radius:14px;border:1px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-l1);color:var(--dsw-alias-label-secondary);display:flex;align-items:center;justify-content:center;cursor:pointer;font:inherit;box-shadow:0 6px 20px rgba(0,0,0,.28);transition:transform var(--flowv-t-fast) var(--flowv-ease-out),background-color var(--flowv-t-fast) linear,color var(--flowv-t-fast) linear}',
       '.flowv-fab-btn svg{width:20px;height:20px}',
       '.flowv-fab-btn:hover{background:var(--dsw-alias-bg-l2);color:var(--dsw-alias-label-primary)}',
@@ -852,12 +853,12 @@ window.__ModuleLoader__.load({
       '.flowv-drawer.flowv-sheet.flowv-drawer--narrow{width:auto}',
       /* v1.39：详情层改为覆盖整个调度台视图的全屏层（不再是右侧抽屉） */
       '.flowv{position:relative}',
-      '.flowv-sheet-stack{position:absolute;inset:0;z-index:220;pointer-events:none}',
-      '.flowv-sheet-layer{position:absolute;inset:0;pointer-events:auto}',
+      '.flowv-sheet-stack{position:fixed;inset:0;z-index:220;display:flex;min-height:0;overflow:hidden;pointer-events:none}',
+      '.flowv-sheet-layer{position:absolute;inset:0;display:flex;min-height:0;overflow:hidden;pointer-events:auto}',
       '.flowv-sheet-layer.is-under{pointer-events:none}',
       '.flowv-sheet-mask{position:absolute;inset:0;background:rgba(0,0,0,.32)}',
       '.flowv-sheet-mask.is-under{background:rgba(0,0,0,.14)}',
-      '.flowv-drawer.flowv-sheet{position:absolute;top:0;right:0;bottom:0;left:0;width:auto;height:auto;border-left:0;box-shadow:none;transform:translateY(10px);opacity:0;transition:transform 200ms var(--flowv-ease-out),opacity 160ms linear;border-radius:0}',
+      '.flowv-drawer.flowv-sheet{position:fixed;inset:0;width:auto;height:auto;min-height:0;overflow:hidden;border-left:0;box-shadow:none;transform:translateY(10px);opacity:0;transition:transform 200ms var(--flowv-ease-out),opacity 160ms linear;border-radius:0}',
       '.flowv-drawer.flowv-sheet.is-open{transform:translateY(0);opacity:1}',
       '.flowv-drawer.flowv-sheet.is-closing{transform:translateY(6px);opacity:0;pointer-events:none}',
       '.flowv-sheet .flowv-drawer-head{position:sticky;top:0;z-index:2;background:var(--dsw-alias-bg-base)}',
@@ -1029,21 +1030,80 @@ window.__ModuleLoader__.load({
       /* ---- v0.012：工单箱改成两栏邮箱 ----------------------------------
          左列表 / 右详情。理由不是好看：工单是逐条处理的，两栏让"一次只读一条"
          成为版式的事实，而不是靠人自己克制。 */
-      '.flowv-drawer--wide{width:min(1040px,96vw)}',
-      '.flowv-mail{display:grid;grid-template-columns:300px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}',
+      '.flowv-drawer--wide{width:min(1120px,98vw)}',
+      '.flowv-chat{display:grid;grid-template-columns:minmax(190px,240px) minmax(0,1fr);flex:1;min-height:0;min-width:0;overflow:hidden;background:var(--dsw-alias-bg-base)}',
+      '.flowv-chat-sidebar{display:flex;flex-direction:column;min-height:0;min-width:0;border-right:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform)}',
+      '.flowv-chat-sidebar-head{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 12px;border-bottom:1px solid var(--dsw-alias-border-l2);font-size:12px}',
+      '.flowv-chat-sidebar-head span,.flowv-chat-conversation-copy span{font-size:10.5px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-chat-conversations{padding:8px;overflow:auto}',
+      '.flowv-chat-conversation{display:flex;align-items:center;gap:9px;width:100%;min-height:58px;padding:8px;text-align:left;border:1px solid transparent;border-radius:6px;background:transparent;color:inherit;cursor:pointer}',
+      '.flowv-chat-conversation.is-active{background:var(--dsw-alias-bg-base);border-color:var(--dsw-alias-border-l2)}',
+      '.flowv-chat-conversation:focus-visible,.flowv-chat-task-option:focus-visible,.flowv-task-ref-remove:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}',
+      '.flowv-chat-conversation-copy{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}',
+      '.flowv-chat-conversation-copy b,.flowv-chat-conversation-copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.flowv-chat-time{align-self:flex-start;white-space:nowrap;font-size:9.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-chat-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;border-radius:50%;background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary);font-size:11px;font-weight:700}',
+      '.flowv-chat-avatar.issue{background:var(--dsw-alias-state-warning-tertiary,var(--dsw-alias-bg-layer-2))}',
+      '.flowv-chat-avatar.small{flex-basis:26px;width:26px;height:26px;font-size:10px}',
+      '.flowv-chat-main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}',
+      '.flowv-chat-header{display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 16px;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-chat-header>div:not(.flowv-spacer){display:flex;flex-direction:column;gap:3px;min-width:0}',
+      '.flowv-chat-header>div>span{font-size:10px;color:var(--dsw-alias-label-secondary)}',
+            '.flowv-chat-stream{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable;overscroll-behavior:contain;padding:18px clamp(12px,3vw,34px);scrollbar-color:var(--dsw-alias-border-l3) transparent;scrollbar-width:thin}',
+      '.flowv-chat-message{display:flex;align-items:flex-start;gap:8px;max-width:min(760px,92%);min-width:0}',
+      '.flowv-chat-message.is-mine{align-self:flex-end;justify-content:flex-end}',
+      '.flowv-chat-message-body{display:flex;flex-direction:column;gap:5px;min-width:0;max-width:100%}',
+      '.flowv-chat-message.is-mine .flowv-chat-message-body{align-items:flex-end}',
+      '.flowv-chat-message-meta{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-chat-message-meta b{color:var(--dsw-alias-label-primary)}',
+      '.flowv-chat-message-meta span{font-variant-numeric:tabular-nums}',
+      '.flowv-chat-delivery{color:var(--dsw-alias-label-tertiary)}',
+      '.flowv-chat-bubble{max-width:72ch;padding:9px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:5px;background:var(--dsw-alias-bg-module-platform);font-size:12px;line-height:1.6;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere;white-space:pre-wrap}',
+      '.flowv-chat-message.is-mine .flowv-chat-bubble{background:var(--dsw-alias-state-business-tertiary)}',
+      '.flowv-chat-reply{align-self:flex-start;border:0;background:none;padding:2px 0;color:var(--dsw-alias-label-secondary);font-size:10px;cursor:pointer}',
+      '.flowv-chat-reply:hover{text-decoration:underline}',
+      '.flowv-chat-reply-ref{font-size:10px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-chat-empty{margin:auto;display:flex;flex-direction:column;align-items:center;gap:5px;padding:24px;text-align:center;color:var(--dsw-alias-label-secondary);font-size:11px}',
+      '.flowv-chat-empty b{color:var(--dsw-alias-label-primary);font-size:13px}',
+      '.flowv-chat-composer{position:relative;z-index:1;flex:0 0 auto;display:flex;flex-direction:column;gap:7px;padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base)}',
+      '.flowv-chat-compose-row{display:flex;align-items:flex-end;gap:8px}',
+      '.flowv-chat-input{min-height:54px;max-height:140px;resize:vertical}',
+      '.flowv-chat-compose-row .flowv-btn{height:36px;padding-inline:14px}',
+      '.flowv-chat-reference summary{width:max-content;max-width:100%;padding:4px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;color:var(--dsw-alias-label-secondary);font-size:10.5px;cursor:pointer}',
+      '.flowv-chat-reference summary:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}',
+      '.flowv-chat-reference[open] .flowv-chat-task-list{display:grid}',
+      '.flowv-chat-task-list{display:none;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:6px;max-height:190px;overflow:auto;padding:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base)}',
+      '.flowv-chat-task-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:8px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;background:var(--dsw-alias-bg-module-platform);text-align:left;color:var(--dsw-alias-label-primary);cursor:pointer}',
+      '.flowv-chat-task-option span:last-child{display:-webkit-box;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:10px;line-height:1.4;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}',
+      '.flowv-chat-task-option:disabled{opacity:.65;cursor:default}',
+      '.flowv-chat-task-option:hover:not(:disabled){border-color:var(--dsw-alias-border-l3)}',
+      '.flowv-chat-selected-refs{display:flex;flex-wrap:wrap;gap:6px;max-height:120px;overflow:auto}',
+      '.flowv-task-ref-card{display:flex;flex-direction:column;gap:3px;min-width:150px;max-width:min(310px,100%);padding:7px 9px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;background:var(--dsw-alias-bg-base);overflow-wrap:anywhere}',
+      '.flowv-chat-message-body>.flowv-task-ref-card{max-width:420px}',
+      '.flowv-task-ref-top{display:flex;align-items:center;gap:7px;min-width:0}',
+      '.flowv-task-ref-id{font-family:var(--dsw-font-mono,ui-monospace);font-size:10px;color:var(--dsw-alias-label-secondary)}',
+      '.flowv-task-ref-status{font-size:9.5px;color:var(--dsw-alias-state-business-primary)}',
+      '.flowv-task-ref-remove{margin-left:auto;flex:0 0 28px;width:28px;height:28px;border:0;border-radius:4px;background:transparent;color:var(--dsw-alias-label-secondary);font-size:18px;cursor:pointer}',
+      '.flowv-task-ref-remove:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}',
+      '.flowv-task-ref-title{font-size:10.5px;line-height:1.4;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+      '.flowv-task-ref-summary,.flowv-task-ref-owner{font-size:9.5px;line-height:1.4;color:var(--dsw-alias-label-secondary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+      '.flowv-chat-replying{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:4px;font-size:10.5px}',
+      '.flowv-chat-replying button{width:28px;height:28px;border:0;background:transparent;color:inherit;cursor:pointer}',
+      '.flowv-chat-error{padding:6px 8px;border:1px solid var(--dsw-alias-state-error-primary);border-radius:4px;color:var(--dsw-alias-state-error-primary);font-size:10.5px;overflow-wrap:anywhere}',
+      '.flowv-mail{display:grid;grid-template-columns:minmax(260px,300px) minmax(0,1fr);flex:1;min-height:0;overflow:hidden}',
       '.flowv-mail-side{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform)}',
-      '.flowv-mail-side-hd{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--dsw-alias-label-primary);border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-mail-side-hd{display:flex;align-items:center;gap:8px;padding:10px 12px;font-size:12px;color:var(--dsw-alias-label-primary);border-bottom:1px solid var(--dsw-alias-border-l2)}',
       '.flowv-mail-unread{font-size:10.5px;line-height:1.5;padding:1px 6px;border-radius:999px;background:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-label-primary-inverted)}',
-      '.flowv-mail-search{margin:8px 12px 0;width:auto;flex:0 0 auto}',
-      '.flowv-mail-tabs{display:flex;gap:2px;padding:8px 8px 6px;border-bottom:1px solid var(--dsw-alias-border-l2)}',
-      '.flowv-mail-tab{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:4px;padding:4px 6px;font-size:11px;border:none;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
-      '.flowv-mail-tab:hover{background:var(--dsw-alias-interactive-bg-hover)}',
+      '.flowv-mail-search{margin:10px 12px 0;width:auto;flex:0 0 auto;min-height:34px}',
+      '.flowv-mail-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:8px;border-bottom:1px solid var(--dsw-alias-border-l2)}',
+      '.flowv-mail-tab{min-width:0;min-height:36px;display:flex;align-items:center;justify-content:center;gap:4px;padding:5px 3px;font-size:10.5px;line-height:1.2;border:none;border-radius:5px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
+      '@media(hover:hover) and (pointer:fine){.flowv-mail-tab:hover{background:var(--dsw-alias-interactive-bg-hover)}}',
       '.flowv-mail-tab.on{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l2)}',
       '.flowv-mail-tab:focus-visible{outline:2px solid var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));outline-offset:1px}',
       '.flowv-mail-tab-n{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
-      '.flowv-mail-list{flex:1;min-height:0;overflow:auto;padding:4px}',
-      '.flowv-mail-row{display:flex;gap:8px;width:100%;text-align:left;padding:8px;border:none;border-radius:8px;background:transparent;cursor:pointer;color:inherit;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
-      '.flowv-mail-row:hover{background:var(--dsw-alias-interactive-bg-hover)}',
+      '.flowv-mail-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:6px 5px;scrollbar-color:var(--dsw-alias-border-l3) transparent;scrollbar-width:thin}',
+      '.flowv-mail-row{display:flex;gap:8px;width:100%;text-align:left;padding:9px 8px;border:none;border-radius:6px;background:transparent;cursor:pointer;color:inherit;transition:background var(--flowv-t-fast) var(--flowv-ease-out)}',
+      '@media(hover:hover) and (pointer:fine){.flowv-mail-row:hover{background:var(--dsw-alias-interactive-bg-hover)}}',
       '.flowv-mail-row.is-sel{background:var(--dsw-alias-bg-base);box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l3)}',
       '.flowv-mail-row:focus-visible{outline:2px solid var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));outline-offset:1px}',
       '.flowv-mail-dot{flex:0 0 auto;width:6px;height:6px;margin-top:5px;border-radius:50%;background:transparent}',
@@ -1053,14 +1113,15 @@ window.__ModuleLoader__.load({
       '.flowv-mail-row-time{font-size:10px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;flex:0 0 auto}',
       '.flowv-mail-row-title{font-size:12px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row.is-unread .flowv-mail-row-title{font-weight:700}',
+      '.flowv-mail-row-preview{font-size:11px;line-height:1.45;color:var(--dsw-alias-label-secondary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;word-break:break-word}',
       '.flowv-mail-row-meta{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
       '.flowv-mail-row-keep{font-size:9.5px;padding:0 4px;border-radius:4px;background:var(--dsw-alias-bg-module-platform);border:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-state-business-primary)}',
-      '.flowv-mail-main{display:flex;flex-direction:column;min-height:0;overflow:hidden}',
+      '.flowv-mail-main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}',
       '.flowv-mail-main-in{padding:14px 18px 30px}',
       '.flowv-mail-empty{margin:auto;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--dsw-alias-label-tertiary);font-size:12px;padding:40px}',
       '.flowv-mail-task{font-family:var(--dsw-font-mono,ui-monospace);font-size:11px;background:none;border:none;color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));cursor:pointer;padding:0 2px}',
       '.flowv-mail-task:hover{text-decoration:underline}',
-'.flowv-mail-arch{font-size:11px;background:none;border:none;padding:2px 6px;border-radius:4px;cursor:pointer;color:var(--dsw-alias-label-tertiary);transition:color 120ms linear,background 120ms linear]}',
+'.flowv-mail-arch{font-size:11px;background:none;border:1px solid transparent;padding:2px 6px;border-radius:4px;cursor:pointer;color:var(--dsw-alias-label-tertiary);transition:color 120ms linear,background 120ms linear}',
 '.flowv-mail-arch:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2,transparent)}',
 '.flowv-mail-arch:disabled{opacity:.5;cursor:default}',
 '.flowv-mail-arch:focus-visible{outline:2px solid var(--dsw-alias-border-accent,currentColor);outline-offset:1px}',
@@ -1101,16 +1162,21 @@ window.__ModuleLoader__.load({
       '.flowv-blk-ul li.is-done{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}',
       '.flowv-blk.is-code{padding:0;border:none;background:var(--dsw-alias-bg-module-platform);overflow:auto;max-height:240px}',
       '.flowv-blk.is-code code{display:block;padding:8px 10px;font-size:11px;line-height:1.5;white-space:pre}',
-      '@media(max-width:860px){.flowv-mail{grid-template-columns:1fr;grid-template-rows:minmax(0,38%) minmax(0,1fr)}.flowv-mail-side{border-right:none;border-bottom:1px solid var(--dsw-alias-border-l2)}.flowv-drawer--wide{width:100vw}}',
+      '.flowv-mail-back{display:none;flex:0 0 auto;border:0;background:none;color:var(--dsw-alias-button-info-fill,var(--dsw-alias-state-business-primary));padding:4px 0;font-size:12px;cursor:pointer;transition:color 120ms linear}',
+      '.flowv-mail-back:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:3px}',
+      '@media(hover:hover) and (pointer:fine){.flowv-mail-back:hover{color:var(--dsw-alias-label-primary)}}',
+      '@media(max-width:860px){.flowv-chat{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.flowv-chat-sidebar{display:none}.flowv-chat-header{min-height:52px;padding:7px 10px}.flowv-chat-stream{padding:12px 10px;gap:12px}.flowv-chat-message{max-width:100%}.flowv-chat-composer{padding:8px 9px calc(10px + env(safe-area-inset-bottom,0px))}.flowv-task-ref-card{min-width:0}.flowv-chat-compose-row .flowv-btn{min-height:40px}.flowv-chat-conversation{min-height:48px}.flowv-mail{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.flowv-mail:not(.is-message-pane):not(.is-detail-open) .flowv-mail-main{display:none}.flowv-mail.is-detail-open:not(.is-message-pane) .flowv-mail-side{display:none}.flowv-mail.is-detail-open:not(.is-message-pane) .flowv-mail-main{display:flex}.flowv-mail.is-message-pane{grid-template-rows:minmax(140px,34%) minmax(0,1fr)}.flowv-mail-side{border-right:none;border-bottom:1px solid var(--dsw-alias-border-l2)}.flowv-mail-back{display:inline-flex;min-height:36px;padding-inline:4px}.flowv-mail-head{padding:11px 16px 9px}.flowv-mail-head-top{flex-wrap:wrap;gap:6px}.flowv-mail-head-top>.flowv-spacer{display:none}.flowv-mail-title{flex-basis:100%;font-size:14px}.flowv-mail-stream{padding:8px 16px 18px}.flowv-composer{padding:9px 16px calc(12px + env(safe-area-inset-bottom,0px))}.flowv-drawer--wide{width:100vw}}',
       /* ---- v0.013：右侧消息流 + 聊天式输入区 ----------------------------
          工单正文是第一条消息，之后每条回复是一条消息；不用气泡（长段落会被挤碎），
          用“角色/时间一行 + 左对齐正文”的线索式排版。 */
-      '.flowv-mail-detail{display:flex;flex-direction:column;flex:1;min-height:0}',
-      '.flowv-mail-head{flex:0 0 auto;padding:10px 22px 8px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);z-index:2}',
+      '.flowv-mail-detail{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}',
+      '.flowv-mail-head{flex:0 0 auto;padding:12px 22px 10px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);z-index:2}',
       '.flowv-mail-head-top{display:flex;align-items:center;gap:8px;min-width:0}',
-      '.flowv-mail-title{font-size:13px;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.flowv-mail-head-meta{margin-top:2px;font-size:10.5px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
-      '.flowv-mail-stream{flex:1;min-height:0;overflow:auto;padding:4px 22px 18px}',
+      '.flowv-mail-title{flex:1 1 auto;min-width:0;font-size:14px;line-height:1.4;font-weight:600;color:var(--dsw-alias-label-primary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}',
+      '.flowv-mail-head-meta{margin-top:5px;font-size:10.5px;line-height:1.45;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
+      '.flowv-mail-stream{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:10px 24px 22px;scrollbar-color:var(--dsw-alias-border-l3) transparent;scrollbar-width:thin}',
+      '.flowv-mail ::selection{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary)}',
+      '.flowv-mail input,.flowv-mail textarea{caret-color:var(--dsw-alias-state-business-primary)}',
       '.flowv-msg{padding:11px 0}',
       '.flowv-msg+.flowv-msg{border-top:1px solid var(--dsw-alias-border-l2)}',
       '.flowv-msg-hd{display:flex;align-items:center;gap:8px;margin-bottom:5px;min-height:16px}',
@@ -1127,7 +1193,7 @@ window.__ModuleLoader__.load({
       '.flowv-mail-archived{padding:9px 0;font-size:11px;color:var(--dsw-alias-label-tertiary);border-top:1px solid var(--dsw-alias-border-l2)}',
       '.flowv-mail-foot{padding:7px 22px;border-top:1px solid var(--dsw-alias-border-l2)}',
       '.flowv-composer{flex:0 0 auto;padding:9px 22px 12px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base)}',
-      '.flowv-quote{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;margin-bottom:6px;border-left:2px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-module-platform);border-radius:4px;font-size:11px}',
+      '.flowv-quote{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;margin-bottom:6px;border-left:1px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-module-platform);border-radius:4px;font-size:11px}',
       '.flowv-quote-b{flex:0 0 auto;font-weight:600;color:var(--dsw-alias-label-secondary)}',
       '.flowv-quote-tx{flex:1;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
       '.flowv-quote-x,.flowv-attach-x{flex:0 0 auto;border:none;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;font-size:13px;line-height:1;padding:0 2px}',
@@ -1147,6 +1213,7 @@ window.__ModuleLoader__.load({
       /* 减少动态偏好：不是关掉动效，而是去掉"位移/缩放"这类会让人不适的部分，
          保留淡入淡出——状态变化仍然可感知，只是不晃。 */
       '@media (prefers-reduced-motion:reduce){',
+      '.flowv-mail-row,.flowv-mail-tab,.flowv-mail-back,.flowv-mail-arch{transition:none}',
       '.flowv-drawer,.flowv-drawer.is-open,.flowv-drawer.is-closing{transform:none}',
       '.flowv-modal,.flowv-modal.is-open,.flowv-modal.is-closing{transform:none}',
       '.flowv-task:hover{transform:none}',
@@ -2738,15 +2805,16 @@ window.__ModuleLoader__.load({
           // 归档区要连已归档一起拉；其余视图默认不拉
           var includeArchived = want.includeArchived === true
           // 只置 loading，不把 items 清空：清空会让列表闪一下，且选中项在数据回来前无处可落。
-          setInbox(function (prev) { return Object.assign({}, prev || {}, { loading: true, replying: null, includeArchived: includeArchived }) })
+          setInbox(function (prev) { return Object.assign({}, prev || {}, { loading: true, error: '', replying: null, includeArchived: includeArchived }) })
           postAction('inbox.list', {
             projectId: v.project.id,
             includeArchived: includeArchived,
-            q: want.q || (inbox && inbox.q) || '',
+            q: '', // Search the loaded mailbox locally so clearing a query restores its rows.
           }).then(function (res) {
-            if (!res) return
+            if (!res || res.ok === false) throw new Error((res && (res.message || res.reason)) || '未收到工单数据')
             setInbox(function (prev) {
-              var base = prev || {}
+              if (!prev || prev.includeArchived !== includeArchived) return prev
+              var base = prev
               // 只在服务端真的给了数组时才替换列表。
               // 直接写 res.items || [] 的话，一次形状异常的响应就会把
               // 打开抽屉时带进来的数据清空 —— 用户看到的是"点开就空了"。
@@ -2776,8 +2844,11 @@ window.__ModuleLoader__.load({
                 })
               }).catch(function () {})
             }
-          }).catch(function () {
-            setInbox(function (prev) { return Object.assign({}, prev || {}, { loading: false }) })
+          }).catch(function (err) {
+            setInbox(function (prev) {
+              if (!prev || prev.includeArchived !== includeArchived) return prev
+              return Object.assign({}, prev, { loading: false, error: String(err.message || err) })
+            })
           })
         }
         // 请示箱图标：托盘 + 下坠箭头，一眼是「收件」而不是「列表」。
@@ -2809,6 +2880,7 @@ var silentRead = function (inboxId) {
         // error 是「系统自己坏了」（调度员连续失败到头）—— 与通知同形状，但要看得出是坏消息。
         var INBOX_KIND_LABEL = { decision: '待决策', blocked: '阻塞', risk: '风险审批', info: '通知', error: '系统错误' }
         var INBOX_KIND_TONE = { decision: 'warn', blocked: 'bad', risk: 'bad', info: 'info', error: 'bad' }
+        var INBOX_CATEGORY_LABEL = { approval: '待批准', acceptance: '待验收', 'external-pr': '外部 PR', blocked: '阻塞', decision: '决定', info: '通知' }
         var renderInbox = function () {
           if (!inbox) return null
           var close = function (e) { if (e) e.stopPropagation(); setInbox(null) }
@@ -2838,10 +2910,15 @@ var silentRead = function (inboxId) {
             return x.kind || ''
           }
           var q = inbox.q || ''
+          var query = String(q).trim().toLowerCase()
           var isNotice = function (x) { return x.kind === 'info' || x.kind === 'error' }
           var isActive = function (x) { return x.status !== 'archived' }
           var keepId = inbox.keep || ''
           var pool = all.filter(function (x) {
+            if (query) {
+              var searchable = [x.id, x.taskId, x.topic, x.problem, x.body, x.decisionNeeded, x.where, x.suggestion, x.from].join(' ').toLowerCase()
+              if (searchable.indexOf(query) < 0) return false
+            }
             if (tab === 'archived') return !isActive(x)
             if (!isActive(x)) return false
             if (tab === 'notices') return isNotice(x) || catOf(x) === 'info'
@@ -2859,14 +2936,17 @@ var silentRead = function (inboxId) {
           })
           var counts = inbox.counts || {}
           var countOf = function (id) {
-            if (id === 'todo') return counts.open || 0
-            if (id === 'replied') return counts.answered || 0
-            if (id === 'notices') return counts.notices || 0
-            return counts.archived || 0
+            return all.filter(function (x) {
+              if (id === 'archived') return !isActive(x)
+              if (!isActive(x)) return false
+              if (id === 'all') return true
+              if (id === 'notices') return isNotice(x) || catOf(x) === 'info'
+              return catOf(x) === id
+            }).length
           }
           var selected = pool.filter(function (x) { return x.id === (inbox.sel || '') })[0] || pool[0] || null
           var select = function (x) {
-            setInbox(Object.assign({}, inbox, { sel: x.id, draft: '', keep: keepId === x.id ? keepId : null }))
+            setInbox(Object.assign({}, inbox, { sel: x.id, keep: keepId === x.id ? keepId : null, mobileDetail: true }))
             // 选中即已读（列表上的未读点跟着消失）。只在第一次发，失败也不打扰人。
             if (!x.readAt && x.status !== 'archived' && !inboxReadSent[x.id]) {
               inboxReadSent[x.id] = true
@@ -2889,7 +2969,7 @@ var silentRead = function (inboxId) {
               return answers[a.key] !== undefined && String(answers[a.key]).trim() !== ''
             }).length
           }
-          var tabsEl = h('nav', { className: 'flowv-mail-tabs' }, TABS.map(function (t) {
+          var tabsEl = h('nav', { className: 'flowv-mail-tabs', 'aria-label': '工单分类' }, TABS.map(function (t) {
             var on = tab === t.id
             return h('button', {
               key: 'tab-' + t.id, type: 'button',
@@ -2897,15 +2977,15 @@ var silentRead = function (inboxId) {
               'aria-pressed': on ? 'true' : 'false',
               onClick: function (e) {
                 e.stopPropagation()
-                setInbox(Object.assign({}, inbox, { tab: t.id, sel: null, keep: null }))
+                setInbox(Object.assign({}, inbox, { tab: t.id, sel: null, keep: null, mobileDetail: false }))
                 if (t.id === 'archived') refreshInbox({ includeArchived: true })
                 else refreshInbox({ includeArchived: false })
-                setInbox(Object.assign({}, inbox, { tab: t.id, sel: null }))
               },
             }, t.label, h('span', { className: 'flowv-mail-tab-n' }, String(countOf(t.id))))
           }))
           var searchEl = h('input', {
             className: 'flowv-input flowv-mail-search', type: 'search', value: q,
+            'aria-label': '搜索工单标题、编号或内容',
             placeholder: '搜索标题 / 卡号…',
             onChange: function (e) { setInbox(Object.assign({}, inbox, { q: e.target.value })) },
             onKeyDown: function (e) {
@@ -2918,17 +2998,22 @@ var silentRead = function (inboxId) {
             var on = selected && selected.id === x.id
             var unread = !x.readAt && x.status !== 'archived'
             var asks = Array.isArray(x.asks) ? x.asks : []
+            var preview = String(x.problem || x.body || x.decisionNeeded || '').replace(/\s+/g, ' ').trim()
+            var category = catOf(x)
             return h('button', {
               key: 'row-' + x.id, type: 'button',
               className: 'flowv-mail-row' + (on ? ' is-sel' : '') + (unread ? ' is-unread' : ''),
+              'aria-pressed': on ? 'true' : 'false',
+              'aria-label': (x.topic || '(无标题)') + (x.taskId ? '，' + x.taskId : '') + (unread ? '，未读' : ''),
               onClick: function (e) { e.stopPropagation(); select(x) },
             },
               h('span', { className: 'flowv-mail-dot', 'aria-hidden': 'true' }),
               h('div', { className: 'flowv-mail-row-main' },
                 h('div', { className: 'flowv-mail-row-top' },
-                  h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, x.category || INBOX_KIND_LABEL[x.kind] || x.kind),
+                  h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_CATEGORY_LABEL[category] || x.category || INBOX_KIND_LABEL[x.kind] || x.kind),
                   h('span', { className: 'flowv-mail-row-time' }, dayTime(x.updatedAt || x.createdAt))),
                 h('span', { className: 'flowv-mail-row-title' }, x.topic || '(无标题)'),
+                preview ? h('span', { className: 'flowv-mail-row-preview' }, preview) : null,
                 h('div', { className: 'flowv-mail-row-meta' },
                   x.taskId ? h('span', { className: 'flowv-mono' }, x.taskId) : null,
                   (Array.isArray(x.refs) ? x.refs : []).slice(0, 4).map(function (ref, i) {
@@ -3106,6 +3191,7 @@ var silentRead = function (inboxId) {
           // 判断标准仍然是“人能不能直接动手”——输入框 + 三个按钮就是最小的聊天能力。
           var composerEl = function (x) {
             var asks = Array.isArray(x.asks) ? x.asks : []
+            var draft = (inbox.drafts || {})[x.id] || ''
             var answers = answersOf(x)
             var missing = asks.filter(function (a) { return a.required }).filter(function (a) {
               var v = answers[a.key]
@@ -3128,16 +3214,15 @@ var silentRead = function (inboxId) {
               var v = String(raw || '').trim()
               if (!v) return
               if (attach.indexOf(v) >= 0) return
-              setAttach(attach.concat([v]).slice(0, 8))
-              setInbox(Object.assign({}, inbox, { attachDraft: '' }))
+              setInbox(Object.assign({}, inbox, { attach: { anchor: x.id, items: attach.concat([v]).slice(0, 8) }, attachDraft: '' }))
             }
             var answeredCount = Object.keys(answers).filter(function (k) { return answers[k] !== undefined && String(answers[k]).trim() !== '' }).length
-            var hasBody = !!String(inbox.draft || '').trim()
+            var hasBody = !!String(draft).trim()
             var canSend = !(busy === 'inbox.reply' || x.status === 'archived' || (!hasBody && answeredCount === 0 && attach.length === 0))
             var send = function (e) {
               if (e) e.stopPropagation()
               if (!canSend) return
-              var content = String(inbox.draft || '').trim()
+              var content = String(draft).trim()
               // 引用写进正文（Markdown 引用），而不是藏在一个系统字段里：
               // 调度看到的就是人看到的那一段。
               if (quote) content = '> ' + quote.who + ' · ' + quote.at + '：' + quote.text + (content ? SEP + SEP + content : '')
@@ -3152,8 +3237,6 @@ var silentRead = function (inboxId) {
                 setBusy('')
                 if (!res) return
                 setNotice('已回复。' + (missing.length ? '还有 ' + missing.length + ' 项没答，调度会再问你。' : '已通知调度员在票里回复你。'))
-                var keep = Object.assign({}, inbox.answers || {})
-                delete keep[x.id]
                 // v0.013.1：回复完**留在这一条**。原来这里会 refreshInbox，工单变成「已答复」后被
                 // 当前 tab 过滤掉，选中项顺势落到下一条 —— 人刚写完一段话就被弹去看别的工单，
                 // 既丢了读的上下文，也不知道自己刚发的那条长什么样。
@@ -3172,14 +3255,27 @@ var silentRead = function (inboxId) {
                     }]),
                   })
                 })
-                var c2 = Object.assign({}, inbox.counts || {})
-                if (typeof c2.open === 'number') c2.open = Math.max(0, c2.open - 1)
-                if (typeof c2.answered === 'number') c2.answered = c2.answered + 1
-                setInbox(Object.assign({}, inbox, {
-                  answers: keep, draft: '', quote: null, attach: null, attachOpen: false, attachDraft: '', keep: null,
-                  items: items2, counts: c2, open: c2.open, answered: c2.answered,
-                  sel: x.id, keep: x.id,
-                }))
+                setInbox(function (prev) {
+                  if (!prev) return prev
+                  var nextAnswers = Object.assign({}, prev.answers || {})
+                  var nextDrafts = Object.assign({}, prev.drafts || {})
+                  delete nextAnswers[x.id]
+                  if (nextDrafts[x.id] === draft) delete nextDrafts[x.id]
+                  var updated = items2.filter(function (item) { return item.id === x.id })[0]
+                  var counts = Object.assign({}, prev.counts || {})
+                  if (x.status === 'open') {
+                    counts.open = Math.max(0, (counts.open || 0) - 1)
+                    counts.answered = (counts.answered || 0) + 1
+                  }
+                  return Object.assign({}, prev, {
+                    counts: counts, open: counts.open, answered: counts.answered,
+                    answers: nextAnswers, drafts: nextDrafts,
+                    quote: prev.quote && prev.quote.anchor === x.id ? null : prev.quote,
+                    attach: prev.attach && prev.attach.anchor === x.id ? null : prev.attach,
+                    items: (prev.items || []).map(function (item) { return item.id === x.id ? updated : item }),
+                    keep: prev.sel === x.id || !prev.sel ? x.id : prev.keep,
+                  })
+                })
                 load()
                 // 发送后回到消息流底部：新的那条就在眼前，不用自己拖。
                 setTimeout(function () {
@@ -3213,9 +3309,14 @@ var silentRead = function (inboxId) {
               }) : null,
               h('textarea', {
                 className: 'flowv-textarea flowv-composer-tx', rows: 3,
-                value: inbox.draft || '',
-                placeholder: '写回复…（只说这一条需要对方知道的事；Ctrl+Enter 发送）',
-                onChange: function (e) { setInbox(Object.assign({}, inbox, { draft: e.target.value })) },
+                value: draft,
+                'aria-label': '回复这条工单',
+                placeholder: '写回复…（Ctrl+Enter 发送）',
+                onChange: function (e) {
+                  var drafts = Object.assign({}, inbox.drafts || {})
+                  drafts[x.id] = e.target.value
+                  setInbox(Object.assign({}, inbox, { drafts: drafts }))
+                },
                 onKeyDown: function (e) { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(e) },
               }),
               h('div', { className: 'flowv-composer-bar' },
@@ -3276,7 +3377,7 @@ var silentRead = function (inboxId) {
             var hit = asks.filter(function (a) { return a.key === b.key })[0]
             if (hit) { setAnswer(x, hit.key, o.value); return }
             // 组件上的选项没有对应 ask：当成一句现成的回复填进输入框，人还能改。
-            var line = String(inbox.draft || '').trim()
+            var line = String(draft).trim()
             setInbox(Object.assign({}, inbox, { draft: (line ? line + String.fromCharCode(10) : '') + o.label }))
           }
           var blockEl = function (x, b, key) {
@@ -3416,6 +3517,10 @@ var silentRead = function (inboxId) {
             var archived = x.status === 'archived'
             return h('header', { className: 'flowv-mail-head flowv-ib-head' },
               h('div', { className: 'flowv-mail-head-top' },
+                h('button', {
+                  className: 'flowv-mail-back', type: 'button', title: '返回工单列表', 'aria-label': '返回工单列表',
+                  onClick: function () { setInbox(Object.assign({}, inbox, { mobileDetail: false })) },
+                }, '返回列表'),
                 h(Chip, { tone: INBOX_KIND_TONE[x.kind] || 'info' }, INBOX_KIND_LABEL[x.kind] || x.kind),
                 h('b', { className: 'flowv-mail-title' }, x.topic || '(无标题)'),
                 h('div', { className: 'flowv-spacer' }),
@@ -3507,10 +3612,10 @@ var silentRead = function (inboxId) {
           // renderInbox 就抛 ReferenceError: emptyEl is not defined，
           // 整个 conversation.view 被 DSH 的 slot 兜底成空白 —— 用户看到"点了收件箱，调度台整块没了"。
           var emptyEl = h('div', { className: 'flowv-mail-empty' },
-            h('b', null, pool.length ? '左边选一条工单' : '这里没有内容'),
+            h('b', null, pool.length ? '左边选一条工单' : (query ? '没有匹配的工单' : '这里没有内容')),
             h('span', null, pool.length
               ? '工单是逐条处理的：选中哪条，右边只显示哪条。'
-              : (tab === 'todo' ? '没有等你回的工单。' : '换个 tab 看看。')))
+              : (query ? '试试更短的关键词。' : (tab === 'todo' ? '没有等你回的工单。' : '换个 tab 看看。'))))
           var sideEl = h('aside', { className: 'flowv-mail-side' },
             h('div', { className: 'flowv-mail-side-hd' },
               h('b', null, 'Inbox'),
@@ -3518,10 +3623,13 @@ var silentRead = function (inboxId) {
               h('div', { className: 'flowv-spacer' })),
             searchEl,
             tabsEl,
-            h('div', { className: 'flowv-mail-list' },
+            inbox.error ? h('div', { className: 'flowv-hint', role: 'alert' },
+              '加载失败：' + inbox.error,
+              h(Btn, { small: true, onClick: function () { refreshInbox({ includeArchived: tab === 'archived' }) } }, '重试')) : null,
+            h('div', { className: 'flowv-mail-list', 'aria-busy': inbox.loading ? 'true' : 'false' },
               inbox.loading && !pool.length
                 ? h('div', { className: 'flowv-loading' }, '载入中…')
-                : (pool.length ? pool.map(rowEl) : h('div', { className: 'flowv-hint' }, tab === 'todo' ? '没有等你回的工单。' : '这里没有内容。'))))
+                : (pool.length ? pool.map(rowEl) : h('div', { className: 'flowv-hint' }, query ? '没有匹配的工单，试试更短的关键词。' : (tab === 'todo' ? '没有等你回的工单。' : '这个分类暂无工单。')))))
           var safeHref = function (url) {
             var s = String(url || '').trim()
             return /^https?:\/\//i.test(s) ? s : ''
@@ -3552,81 +3660,82 @@ var silentRead = function (inboxId) {
               x.taskId ? h(Btn, { small: true, onClick: function () { openDrawer(x.taskId) } }, '打开卡片') : null)
           }
           var messagePane = function () {
-            var seeded = (v.laneMessages && Array.isArray(v.laneMessages.items)) ? v.laneMessages.items : []
-            var messages = Array.isArray(inbox.messages) ? inbox.messages : seeded
-            var taskRefs = []
-            Object.keys(boardTasks || {}).forEach(function (col) {
-              (boardTasks[col] || []).forEach(function (t) {
-                if (t && t.id) taskRefs.push({ kind: 'task', id: t.id, label: t.title || t.id })
-              })
-            })
-            return h('div', { className: 'flowv-mail', key: 'lane-messages' },
-              h('aside', { className: 'flowv-mail-side' },
-                h('div', { className: 'flowv-mail-list' },
-                  messages.length ? messages.map(function (m) {
-                    var author = (m.from && (m.from.name || m.from.kind)) || '未知'
-                    var lane = (m.to && m.to.lane) || m.to || ''
-                    return h('div', { key: m.id, className: 'flowv-mail-row' },
-                      h('div', { className: 'flowv-mail-row-top' },
-                        h('b', null, author),
-                        h('span', null, String(lane)),
-                        h('span', { className: 'flowv-mail-row-time' }, dayTime(m.createdAt))),
-                      h('div', { className: 'flowv-msg-tx' }, String(m.body || '')),
-                      h('div', null, m.deliveredAt ? ('已投递 ' + dayTime(m.deliveredAt)) : '未投递'),
-                      m.replyTo ? h('div', { className: 'flowv-mono' }, '回复 ' + m.replyTo) : null,
-                      (m.refs || []).map(function (ref, i) {
-                        var href = safeHref(ref.url)
-                        var label = (ref.kind || 'ref') + ':' + (ref.label || ref.id || '')
-                        return href
-                          ? h('a', { key: 'mref' + i, href: href, target: '_blank', rel: 'noreferrer' }, label)
-                          : h('span', { key: 'mref' + i, className: 'flowv-mono' }, label)
-                      }))
-                  }) : h('div', { className: 'flowv-hint' }, '还没有车道消息'))),
-              h('section', { className: 'flowv-mail-main' },
-                h('div', { className: 'flowv-field' },
-                  h('label', null, '发给'),
-                  h('select', {
-                    className: 'flowv-select', value: inbox.msgTo || 'all',
-                    onChange: function (e) { setInbox(Object.assign({}, inbox, { msgTo: e.target.value })) },
-                  }, h('option', { value: 'human' }, 'human'), h('option', { value: 'issue' }, 'issue'), h('option', { value: 'all' }, 'all'))),
-                h('div', { className: 'flowv-field' },
-                  h('label', null, '引用'),
-                  h('select', {
-                    className: 'flowv-select', value: '',
-                    onChange: function (e) {
-                      var id = e.target.value
-                      if (!id) return
-                      var hit = taskRefs.filter(function (r) { return r.id === id })[0]
-                      var refs = (inbox.msgRefs || []).concat(hit ? [hit] : [])
-                      setInbox(Object.assign({}, inbox, { msgRefs: refs.slice(0, 8) }))
-                    },
-                  }, h('option', { value: '' }, '选一张卡'), taskRefs.slice(0, 40).map(function (r) {
-                    return h('option', { key: r.id, value: r.id }, r.id + ' ' + r.label)
-                  }))),
-                h('textarea', {
-                  className: 'flowv-textarea', rows: 4, value: inbox.msgBody || '',
-                  placeholder: '写给车道的消息。发送不保证叫醒调度员。',
-                  onChange: function (e) { setInbox(Object.assign({}, inbox, { msgBody: e.target.value })) },
-                }),
-                h(Btn, { small: true, variant: 'primary', onClick: function () {
-                  act('lane.message.post', {
-                    projectId: v.project.id,
-                    body: inbox.msgBody || '',
-                    to: inbox.msgTo || 'all',
-                    refs: inbox.msgRefs || [],
-                    replyTo: inbox.replyTo || null,
-                  }).then(function () { return act('lane.message.list', { projectId: v.project.id }) })
-                    .then(function (res) {
-                      var items = res && res.items
-                      setInbox(function (prev) {
-                        return Object.assign({}, prev || {}, { messages: Array.isArray(items) ? items : (prev && prev.messages), msgBody: '' })
-                      })
-                    })
-                } }, '发送')))
-          }
-          var mainEl = h('section', { className: 'flowv-mail-main' },
+  var seeded = (v.laneMessages && Array.isArray(v.laneMessages.items)) ? v.laneMessages.items : []
+  var messages = (Array.isArray(inbox.messages) ? inbox.messages : seeded).slice().reverse()
+  var taskRefs = []
+  Object.keys(boardTasks || {}).forEach(function (col) {
+    (boardTasks[col] || []).forEach(function (t) { if (t && t.id) taskRefs.push(Object.assign({}, t, { kind: 'task', label: t.title || t.id })) })
+  })
+  var laneName = { human: '人车道', issue: '自动车道' }
+  var activeLane = inbox.msgLane || 'human'
+  var messageLane = function (m) { return m && m.from && m.from.kind === 'human' ? (m.to && m.to.lane) : (m && m.from && m.from.lane) }
+  var laneMessages = messages.filter(function (m) { var lane = messageLane(m); return lane === activeLane || lane === 'all' })
+  var currentRefs = inbox.msgRefs || []
+  var refCard = function (ref, removable, onRemove) {
+    var task = taskRefs.filter(function (t) { return t.id === ref.id })[0]
+    var title = task ? task.title : (ref.label || ref.id)
+    var column = task ? (COLUMN_TITLES[task.blocked ? 'blocked' : task.column] || task.column || '任务') : ref.kind
+    var summary = task && task.progress && task.progress.summary || task && task.summary || (task ? '暂无进度摘要' : ref.id)
+    return h('div', { key: ref.kind + ':' + ref.id, className: 'flowv-task-ref-card' },
+      h('div', { className: 'flowv-task-ref-top' }, h('span', { className: 'flowv-task-ref-id' }, ref.id), h('span', { className: 'flowv-task-ref-status' }, column), removable ? h('button', { type: 'button', className: 'flowv-task-ref-remove', 'aria-label': '移除引用 ' + title, onClick: onRemove }, '×') : null),
+      h('b', { className: 'flowv-task-ref-title' }, title), h('span', { className: 'flowv-task-ref-summary' }, summary),
+      task && task.assignee ? h('span', { className: 'flowv-task-ref-owner' }, '负责人 ' + agentName(task.assignee)) : null)
+  }
+  var addRef = function (id) {
+    if (!id || currentRefs.some(function (r) { return r.id === id })) return
+    if (currentRefs.length >= 8) { setInbox(Object.assign({}, inbox, { msgError: '最多引用 8 张卡' })); return }
+    var hit = taskRefs.filter(function (r) { return r.id === id })[0]
+    if (hit) setInbox(Object.assign({}, inbox, { msgRefs: currentRefs.concat([{ kind: 'task', id: hit.id, label: hit.title }]), msgError: '' }))
+  }
+  var taskList = h('div', { className: 'flowv-chat-task-list', role: 'listbox', 'aria-label': '可引用任务' }, taskRefs.length ? taskRefs.slice(0, 40).map(function (t) {
+    var active = currentRefs.some(function (r) { return r.id === t.id })
+    return h('button', { key: t.id, type: 'button', className: 'flowv-chat-task-option' + (active ? ' is-added' : ''), disabled: active, onClick: function () { addRef(t.id) } }, h('span', { className: 'flowv-task-ref-id' }, t.id), h('b', null, t.title || t.id), h('span', null, (COLUMN_TITLES[t.blocked ? 'blocked' : t.column] || t.column || '任务') + ' · ' + (t.progress && t.progress.summary || '暂无进度摘要')))
+  }) : h('div', { className: 'flowv-hint' }, '当前看板没有可引用的卡片'))
+  var removeRef = function (id) { setInbox(Object.assign({}, inbox, { msgRefs: currentRefs.filter(function (r) { return r.id !== id }) })) }
+  var sendMessage = function () {
+    if (inbox.msgSending || !(inbox.msgBody || '').trim()) return
+    setInbox(function (prev) { return Object.assign({}, prev || {}, { msgSending: true, msgError: '' }) })
+    postAction('lane.message.post', { projectId: v.project.id, body: inbox.msgBody || '', to: activeLane, refs: currentRefs, replyTo: inbox.replyTo || null })
+      .then(function () { return postAction('lane.message.list', { projectId: v.project.id }) })
+      .then(function (res) {
+        if (!res || !Array.isArray(res.items)) throw new Error('消息已提交，但刷新失败；请重新打开消息页确认。')
+        setInbox(function (prev) { return Object.assign({}, prev || {}, { messages: res.items, msgBody: '', msgRefs: [], msgSending: false, msgError: '' }) })
+      }).catch(function (err) { setInbox(function (prev) { return Object.assign({}, prev || {}, { msgSending: false, msgError: String(err.message || err) }) }) })
+  }
+  return h('div', { className: 'flowv-chat', key: 'lane-messages' },
+    h('aside', { className: 'flowv-chat-sidebar', 'aria-label': '消息会话' },
+      h('div', { className: 'flowv-chat-sidebar-head' }, h('b', null, '消息'), h('span', null, '调度会话')),
+      h('div', { className: 'flowv-chat-conversations' }, ['human', 'issue'].map(function (lane) {
+        var latest = messages.filter(function (m) { var target = messageLane(m); return target === lane || target === 'all' }).slice(-1)[0]
+        var active = activeLane === lane
+        return h('button', { key: lane, type: 'button', className: 'flowv-chat-conversation' + (active ? ' is-active' : ''), 'aria-pressed': active ? 'true' : 'false', onClick: function () { setInbox(Object.assign({}, inbox, { msgLane: lane, msgError: '' })) } },
+          h('span', { className: 'flowv-chat-avatar ' + lane }, lane === 'human' ? 'H' : 'A'),
+          h('span', { className: 'flowv-chat-conversation-copy' }, h('b', null, lane === 'human' ? '人车道' : '自动车道'), h('span', null, latest ? String(latest.body || '') : '开始与调度交流')),
+          h('span', { className: 'flowv-chat-time' }, latest ? dayTime(latest.createdAt) : ''))
+      }))),
+    h('section', { className: 'flowv-chat-main', 'aria-label': '与调度聊天' },
+      h('header', { className: 'flowv-chat-header' }, h('span', { className: 'flowv-chat-avatar ' + activeLane }, activeLane === 'human' ? 'H' : 'A'), h('div', null, h('b', null, laneName[activeLane]), h('span', null, '与该车道调度员的对话')), h('div', { className: 'flowv-spacer' })),
+      h('div', { className: 'flowv-chat-stream', 'aria-live': 'polite', 'aria-busy': inbox.msgLoading ? 'true' : 'false' }, inbox.msgLoading && !laneMessages.length ? h('div', { className: 'flowv-chat-empty' }, h('b', null, '正在载入消息')) : laneMessages.length ? laneMessages.map(function (m) {
+        var from = m.from || {}
+        var mine = from.kind === 'human'
+        var author = from.name || (from.kind === 'agent' ? '调度员' : from.kind === 'system' ? '系统' : '我')
+        var refs = (m.refs || []).map(function (ref) { var t = taskRefs.filter(function (x) { return x.id === ref.id })[0]; return Object.assign({}, ref, t ? { label: t.title } : {}) })
+        return h('article', { key: m.id, className: 'flowv-chat-message' + (mine ? ' is-mine' : '') }, !mine ? h('span', { className: 'flowv-chat-avatar small ' + (from.lane === 'issue' ? 'issue' : 'human'), 'aria-hidden': 'true' }, from.kind === 'system' ? 'S' : from.lane === 'issue' ? 'A' : 'H') : null,
+          h('div', { className: 'flowv-chat-message-body' }, h('div', { className: 'flowv-chat-message-meta' }, h('b', null, author), h('span', null, dayTime(m.createdAt)), h('span', { className: 'flowv-chat-delivery' }, m.deliveredAt ? '已投递' : '未投递')),
+            m.replyTo ? h('div', { className: 'flowv-chat-reply-ref' }, '回复 ' + m.replyTo) : null, h('div', { className: 'flowv-chat-bubble' }, String(m.body || '')), refs.map(function (ref) { return refCard(ref, false) }),
+            h('button', { type: 'button', className: 'flowv-chat-reply', onClick: function () { setInbox(Object.assign({}, inbox, { replyTo: m.id })) } }, '回复')))
+      }) : h('div', { className: 'flowv-chat-empty' }, h('b', null, '开始一段对话'), h('span', null, '发送消息给调度，并可附上相关任务卡片。'))),
+      h('div', { className: 'flowv-chat-composer' },
+        inbox.replyTo ? h('div', { className: 'flowv-chat-replying' }, '回复 ' + inbox.replyTo, h('button', { type: 'button', 'aria-label': '取消回复', onClick: function () { setInbox(Object.assign({}, inbox, { replyTo: null })) } }, '×')) : null,
+        currentRefs.length ? h('div', { className: 'flowv-chat-selected-refs' }, currentRefs.map(function (ref) { var t = taskRefs.filter(function (x) { return x.id === ref.id })[0]; return refCard(Object.assign({}, ref, t ? { label: t.title } : {}), true, function () { removeRef(ref.id) }) })) : null,
+        h('details', { className: 'flowv-chat-reference' }, h('summary', null, '＋ 引用任务卡'), taskList),
+        inbox.msgError ? h('div', { className: 'flowv-chat-error', role: 'alert' }, inbox.msgError, inbox.msgLoadError ? h('button', { type: 'button', onClick: function () { setInbox(function (prev) { return Object.assign({}, prev || {}, { msgLoading: true, msgLoadError: '', msgError: '' }) }); postAction('lane.message.list', { projectId: v.project.id }).then(function (res) { if (!res || !Array.isArray(res.items)) throw new Error('消息加载失败'); setInbox(function (prev) { return Object.assign({}, prev || {}, { messages: res.items, msgLoading: false, msgLoadError: '' }) }) }).catch(function (err) { setInbox(function (prev) { return Object.assign({}, prev || {}, { msgLoading: false, msgLoadError: String(err.message || err), msgError: String(err.message || err) }) }) }) } }, '重试') : null) : null,
+        h('div', { className: 'flowv-chat-compose-row' }, h('textarea', { className: 'flowv-textarea flowv-chat-input', rows: 2, value: inbox.msgBody || '', 'aria-label': '消息内容', placeholder: '发消息给调度…', onChange: function (e) { setInbox(Object.assign({}, inbox, { msgBody: e.target.value })) } }),
+          h(Btn, { small: true, variant: 'primary', disabled: !!inbox.msgSending || !(inbox.msgBody || '').trim(), onClick: sendMessage }, inbox.msgSending ? '发送中…' : '发送')))))
+}
+           var mainEl = h('section', { className: 'flowv-mail-main' },
             selected
-              ? h('div', null,
+              ? h('div', { className: 'flowv-mail-detail' },
                 externalTicketEl(selected),
                 acceptanceTicketEl(selected),
                 isNotice(selected) ? infoDetailEl(selected) : detailEl(selected))
@@ -3653,17 +3762,19 @@ var silentRead = function (inboxId) {
                     className: 'flowv-mail-tab' + (pane === 'messages' ? ' on' : ''),
                     onClick: function (e) {
                       e.stopPropagation()
-                      setInbox(Object.assign({}, inbox, { pane: 'messages' }))
-                      act('lane.message.list', { projectId: v.project.id }).then(function (res) {
+                      setInbox(function (prev) { return Object.assign({}, prev || {}, { pane: 'messages', msgLoading: true, msgLoadError: '', msgError: '' }) })
+                      postAction('lane.message.list', { projectId: v.project.id }).then(function (res) {
                         var items = res && res.items
-                        if (!Array.isArray(items)) return
-                        setInbox(function (prev) { return Object.assign({}, prev || {}, { pane: 'messages', messages: items }) })
+                        if (!Array.isArray(items)) throw new Error('消息加载失败')
+                        setInbox(function (prev) { return Object.assign({}, prev || {}, { pane: 'messages', messages: items, msgLoading: false, msgLoadError: '', msgError: '' }) })
+                      }).catch(function (err) {
+                        setInbox(function (prev) { return Object.assign({}, prev || {}, { pane: 'messages', msgLoading: false, msgLoadError: String(err.message || err), msgError: String(err.message || err) }) })
                       })
                     },
                   }, '消息'),
                   h(Chip, { tone: (counts.open || 0) > 0 ? 'bad' : 'info' }, (counts.open || 0) + ' 条待答复'),
                   h('div', { className: 'flowv-spacer' })),
-                pane === 'messages' ? messagePane() : h('div', { className: 'flowv-mail' }, sideEl, mainEl))))
+                pane === 'messages' ? messagePane() : h('div', { className: 'flowv-mail' + (inbox.mobileDetail ? ' is-detail-open' : '') }, sideEl, mainEl))))
         }
         // ---- 渲染：详情层（v1.39 全屏 + 多层） --------------------------------
         /**
@@ -5002,7 +5113,7 @@ var silentRead = function (inboxId) {
           var nOpen = Number(v.inbox.open) || 0;
           var nAnswered = Number(v.inbox.answered) || 0;
           var nTotal = nOpen + nAnswered;
-          inboxFab = h('div', { className: 'flowv-fab' },
+          inboxFab = h('div', { className: 'flowv-fab' + (inbox ? ' is-under-sheet' : '') },
             h('button', {
               className: 'flowv-fab-btn' + (nOpen > 0 ? ' is-active' : ''),
               title: nOpen > 0
